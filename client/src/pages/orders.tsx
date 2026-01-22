@@ -1,0 +1,436 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Printer, Search, Loader2, Eye, Clock, CheckCircle, XCircle, PlayCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { PrintOrder } from "@shared/schema";
+
+const orderSchema = z.object({
+  customerName: z.string().min(1, "اسم الزبون مطلوب"),
+  printType: z.string().min(1, "نوع الطباعة مطلوب"),
+  copies: z.coerce.number().min(1, "عدد النسخ مطلوب"),
+  paperType: z.string().min(1, "نوع الورق مطلوب"),
+  cost: z.coerce.number().min(0, "التكلفة مطلوبة"),
+  notes: z.string().optional(),
+});
+
+type OrderForm = z.infer<typeof orderSchema>;
+
+const printTypes = [
+  { value: "offset", label: "طباعة أوفست" },
+  { value: "digital", label: "طباعة رقمية" },
+  { value: "silkscreen", label: "طباعة حريرية" },
+  { value: "largeformat", label: "طباعة كبيرة" },
+  { value: "books", label: "طباعة كتب" },
+  { value: "cards", label: "بطاقات وكروت" },
+  { value: "banners", label: "لافتات وبنرات" },
+];
+
+const paperTypes = [
+  { value: "a4_80", label: "A4 - 80 غرام" },
+  { value: "a4_100", label: "A4 - 100 غرام" },
+  { value: "a3_80", label: "A3 - 80 غرام" },
+  { value: "a3_100", label: "A3 - 100 غرام" },
+  { value: "glossy", label: "ورق لامع" },
+  { value: "matte", label: "ورق مطفي" },
+  { value: "cardboard", label: "كرتون مقوى" },
+  { value: "special", label: "ورق خاص" },
+];
+
+const statusConfig = {
+  pending: { label: "قيد الانتظار", variant: "secondary" as const, icon: Clock },
+  in_progress: { label: "جاري التنفيذ", variant: "default" as const, icon: PlayCircle },
+  completed: { label: "مكتمل", variant: "outline" as const, icon: CheckCircle },
+  cancelled: { label: "ملغي", variant: "destructive" as const, icon: XCircle },
+};
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <Skeleton className="h-10 flex-1" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <div className="space-y-4 p-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function OrdersPage() {
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<PrintOrder | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { toast } = useToast();
+
+  const { data: orders, isLoading } = useQuery<PrintOrder[]>({
+    queryKey: ["/api/orders"],
+  });
+
+  const form = useForm<OrderForm>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      customerName: "",
+      printType: "",
+      copies: 1,
+      paperType: "",
+      cost: 0,
+      notes: "",
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (data: OrderForm) => {
+      return apiRequest<PrintOrder>("POST", "/api/orders", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsAddOpen(false);
+      form.reset();
+      toast({ title: "تمت إضافة الطلب بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ أثناء الإضافة", variant: "destructive" });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest("PATCH", `/api/orders/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({ title: "تم تحديث حالة الطلب" });
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ أثناء التحديث", variant: "destructive" });
+    },
+  });
+
+  const filteredOrders = orders?.filter((order) => {
+    const matchesSearch = order.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const getPrintTypeLabel = (type: string) => printTypes.find((t) => t.value === type)?.label || type;
+  const getPaperTypeLabel = (type: string) => paperTypes.find((t) => t.value === type)?.label || type;
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">طلبات الطباعة</h1>
+          <p className="text-muted-foreground mt-1">إدارة ومتابعة طلبات الطباعة</p>
+        </div>
+        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-order">
+              <Plus className="h-4 w-4 ml-2" />
+              طلب جديد
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>إضافة طلب طباعة جديد</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((data) => addMutation.mutate(data))} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>اسم الزبون</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-order-customer" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="printType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>نوع الطباعة</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-order-printtype">
+                              <SelectValue placeholder="اختر" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {printTypes.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="paperType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>نوع الورق</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-order-papertype">
+                              <SelectValue placeholder="اختر" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {paperTypes.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="copies"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>عدد النسخ</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-order-copies" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="cost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>التكلفة (ر.س)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} data-testid="input-order-cost" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ملاحظات (اختياري)</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} data-testid="input-order-notes" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={addMutation.isPending} data-testid="button-submit-order">
+                  {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة الطلب"}
+                </Button>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="بحث باسم الزبون..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10"
+                data-testid="input-search-order"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="فلترة بالحالة" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">جميع الحالات</SelectItem>
+                <SelectItem value="pending">قيد الانتظار</SelectItem>
+                <SelectItem value="in_progress">جاري التنفيذ</SelectItem>
+                <SelectItem value="completed">مكتمل</SelectItem>
+                <SelectItem value="cancelled">ملغي</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>الزبون</TableHead>
+                <TableHead>نوع الطباعة</TableHead>
+                <TableHead>النسخ</TableHead>
+                <TableHead>التكلفة</TableHead>
+                <TableHead>الحالة</TableHead>
+                <TableHead>التاريخ</TableHead>
+                <TableHead>الإجراءات</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <Printer className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    لا توجد طلبات
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrders?.map((order) => {
+                  const StatusIcon = statusConfig[order.status as keyof typeof statusConfig]?.icon || Clock;
+                  return (
+                    <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                      <TableCell className="font-medium">{order.customerName}</TableCell>
+                      <TableCell>{getPrintTypeLabel(order.printType)}</TableCell>
+                      <TableCell>{order.copies}</TableCell>
+                      <TableCell>{Number(order.cost).toLocaleString()} ر.س</TableCell>
+                      <TableCell>
+                        <Badge variant={statusConfig[order.status as keyof typeof statusConfig]?.variant || "secondary"}>
+                          <StatusIcon className="h-3 w-3 ml-1" />
+                          {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString("ar-SA") : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setIsViewOpen(true);
+                            }}
+                            data-testid={`button-view-order-${order.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {order.status === "pending" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => updateStatusMutation.mutate({ id: order.id, status: "in_progress" })}
+                            >
+                              <PlayCircle className="h-4 w-4 ml-1" />
+                              بدء
+                            </Button>
+                          )}
+                          {order.status === "in_progress" && (
+                            <Button
+                              size="sm"
+                              onClick={() => updateStatusMutation.mutate({ id: order.id, status: "completed" })}
+                            >
+                              <CheckCircle className="h-4 w-4 ml-1" />
+                              إكمال
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تفاصيل الطلب</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">الزبون</p>
+                  <p className="font-medium">{selectedOrder.customerName}</p>
+                </div>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">نوع الطباعة</p>
+                  <p className="font-medium">{getPrintTypeLabel(selectedOrder.printType)}</p>
+                </div>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">نوع الورق</p>
+                  <p className="font-medium">{getPaperTypeLabel(selectedOrder.paperType)}</p>
+                </div>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">عدد النسخ</p>
+                  <p className="font-medium">{selectedOrder.copies}</p>
+                </div>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">التكلفة</p>
+                  <p className="font-medium">{Number(selectedOrder.cost).toLocaleString()} ر.س</p>
+                </div>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">الحالة</p>
+                  <Badge variant={statusConfig[selectedOrder.status as keyof typeof statusConfig]?.variant || "secondary"}>
+                    {statusConfig[selectedOrder.status as keyof typeof statusConfig]?.label || selectedOrder.status}
+                  </Badge>
+                </div>
+              </div>
+              {selectedOrder.notes && (
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">ملاحظات</p>
+                  <p>{selectedOrder.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

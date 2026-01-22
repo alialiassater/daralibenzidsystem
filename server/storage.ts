@@ -35,6 +35,7 @@ export interface IStorage {
   getBookByBarcode(barcode: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
   updateBookCover(id: string, coverPath: string): Promise<void>;
+  updateBookQuantities(id: string, totalQuantity: number, readyQuantity: number, printingQuantity: number): Promise<Book>;
 
   getExpenses(): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
@@ -58,6 +59,17 @@ function generateBarcode(): string {
 
 function generateBookBarcode(): string {
   return `BOOK${Date.now()}${Math.floor(Math.random() * 1000)}`;
+}
+
+// حساب حالة الكتاب تلقائياً حسب الكميات
+function calculateBookStatus(readyQuantity: number, printingQuantity: number): string {
+  if (readyQuantity > 0) {
+    return "ready"; // جاهز
+  } else if (printingQuantity > 0) {
+    return "printing"; // قيد الطباعة
+  } else {
+    return "unavailable"; // غير متوفر
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -149,12 +161,39 @@ export class DatabaseStorage implements IStorage {
 
   async createBook(insertBook: InsertBook): Promise<Book> {
     const barcode = generateBookBarcode();
-    const [book] = await db.insert(books).values({ ...insertBook, barcode }).returning();
+    const status = calculateBookStatus(
+      insertBook.readyQuantity || 0,
+      insertBook.printingQuantity || 0
+    );
+    const [book] = await db.insert(books).values({ 
+      ...insertBook, 
+      barcode,
+      status 
+    }).returning();
     return book;
   }
 
   async updateBookCover(id: string, coverPath: string): Promise<void> {
     await db.update(books).set({ coverImage: coverPath }).where(eq(books.id, id));
+  }
+
+  async updateBookQuantities(
+    id: string, 
+    totalQuantity: number, 
+    readyQuantity: number, 
+    printingQuantity: number
+  ): Promise<Book> {
+    const status = calculateBookStatus(readyQuantity, printingQuantity);
+    const [book] = await db.update(books)
+      .set({ 
+        totalQuantity, 
+        readyQuantity, 
+        printingQuantity, 
+        status 
+      })
+      .where(eq(books.id, id))
+      .returning();
+    return book;
   }
 
   async getExpenses(): Promise<Expense[]> {
@@ -177,7 +216,7 @@ export class DatabaseStorage implements IStorage {
     const pendingOrders = allOrders.filter(o => o.status === 'pending' || o.status === 'in_progress');
 
     const allBooks = await this.getBooks();
-    const totalPrintedCopies = allBooks.reduce((sum, b) => sum + b.printedCopies, 0);
+    const totalPrintedCopies = allBooks.reduce((sum, b) => sum + (b.totalQuantity || 0), 0);
 
     const allExpenses = await this.getExpenses();
     const totalExpenses = allExpenses

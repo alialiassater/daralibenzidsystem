@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeGenerator } from "@/components/barcode-generator";
-import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image } from "lucide-react";
+import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image, Edit2, Package } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Book } from "@shared/schema";
 
@@ -33,11 +33,39 @@ const bookSchema = z.object({
   author: z.string().min(1, "اسم المؤلف مطلوب"),
   isbn: z.string().min(1, "رقم ISBN مطلوب"),
   category: z.string().min(1, "الصنف مطلوب"),
-  printedCopies: z.coerce.number().min(0, "عدد النسخ مطلوب"),
+  totalQuantity: z.coerce.number().min(0, "الكمية الإجمالية مطلوبة"),
+  readyQuantity: z.coerce.number().min(0, "الكمية الجاهزة مطلوبة"),
+  printingQuantity: z.coerce.number().min(0, "الكمية قيد الطباعة مطلوبة"),
   price: z.coerce.number().min(0, "السعر مطلوب"),
+}).refine((data) => data.readyQuantity <= data.totalQuantity, {
+  message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية",
+  path: ["readyQuantity"],
+}).refine((data) => data.readyQuantity + data.printingQuantity <= data.totalQuantity, {
+  message: "مجموع الكميات لا يمكن أن يتجاوز الكمية الإجمالية",
+  path: ["printingQuantity"],
 });
 
 type BookForm = z.infer<typeof bookSchema>;
+
+const quantitySchema = z.object({
+  totalQuantity: z.coerce.number().min(0),
+  readyQuantity: z.coerce.number().min(0),
+  printingQuantity: z.coerce.number().min(0),
+}).refine((data) => data.readyQuantity <= data.totalQuantity, {
+  message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية",
+  path: ["readyQuantity"],
+}).refine((data) => data.readyQuantity + data.printingQuantity <= data.totalQuantity, {
+  message: "مجموع الكميات لا يمكن أن يتجاوز الكمية الإجمالية",
+  path: ["printingQuantity"],
+});
+
+type QuantityForm = z.infer<typeof quantitySchema>;
+
+const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  "ready": { label: "جاهز", className: "bg-green-500/10 text-green-600" },
+  "printing": { label: "قيد الطباعة", className: "bg-yellow-500/10 text-yellow-600" },
+  "unavailable": { label: "غير متوفر", className: "bg-red-500/10 text-red-600" },
+};
 
 function LoadingSkeleton() {
   return (
@@ -60,10 +88,12 @@ function LoadingSkeleton() {
   );
 }
 
-function BookCard({ book, onViewBarcode }: { book: Book; onViewBarcode: (book: Book) => void }) {
+function BookCard({ book, onViewBarcode, onEditQuantity }: { book: Book; onViewBarcode: (book: Book) => void; onEditQuantity: (book: Book) => void }) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  const statusInfo = STATUS_LABELS[book.status] || STATUS_LABELS["unavailable"];
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,13 +181,34 @@ function BookCard({ book, onViewBarcode }: { book: Book; onViewBarcode: (book: B
           <Badge className={categoryColors[book.category] || categoryColors["أخرى"]} variant="secondary">
             {book.category}
           </Badge>
-          <Badge variant="outline">{book.printedCopies} نسخة</Badge>
+          <Badge className={statusInfo.className} variant="secondary">
+            {statusInfo.label}
+          </Badge>
+        </div>
+        <div className="grid grid-cols-3 gap-1 text-xs text-center">
+          <div className="bg-muted rounded p-1">
+            <p className="font-bold">{book.totalQuantity || 0}</p>
+            <p className="text-muted-foreground">إجمالي</p>
+          </div>
+          <div className="bg-green-500/10 rounded p-1">
+            <p className="font-bold text-green-600">{book.readyQuantity || 0}</p>
+            <p className="text-muted-foreground">جاهز</p>
+          </div>
+          <div className="bg-yellow-500/10 rounded p-1">
+            <p className="font-bold text-yellow-600">{book.printingQuantity || 0}</p>
+            <p className="text-muted-foreground">قيد الطباعة</p>
+          </div>
         </div>
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="font-bold text-primary">{Number(book.price).toLocaleString()} د.ج</span>
-          <Button size="icon" variant="ghost" onClick={() => onViewBarcode(book)} data-testid={`button-barcode-book-${book.id}`}>
-            <QrCode className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-1">
+            <Button size="icon" variant="ghost" onClick={() => onEditQuantity(book)} data-testid={`button-edit-quantity-${book.id}`}>
+              <Edit2 className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => onViewBarcode(book)} data-testid={`button-barcode-book-${book.id}`}>
+              <QrCode className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground font-mono">ISBN: {book.isbn}</p>
       </CardContent>
@@ -169,6 +220,7 @@ export default function BooksPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
+  const [isQuantityOpen, setIsQuantityOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
@@ -184,8 +236,19 @@ export default function BooksPage() {
       author: "",
       isbn: "",
       category: "أخرى",
-      printedCopies: 0,
+      totalQuantity: 0,
+      readyQuantity: 0,
+      printingQuantity: 0,
       price: 0,
+    },
+  });
+
+  const quantityForm = useForm<QuantityForm>({
+    resolver: zodResolver(quantitySchema),
+    defaultValues: {
+      totalQuantity: 0,
+      readyQuantity: 0,
+      printingQuantity: 0,
     },
   });
 
@@ -206,9 +269,35 @@ export default function BooksPage() {
     },
   });
 
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ bookId, data }: { bookId: string; data: QuantityForm }) => {
+      const response = await apiRequest("PATCH", `/api/books/${bookId}/quantities`, data);
+      return response.json() as Promise<Book>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsQuantityOpen(false);
+      toast({ title: "تم تحديث الكميات بنجاح" });
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message || "حدث خطأ أثناء تحديث الكميات", variant: "destructive" });
+    },
+  });
+
   const handleViewBarcode = (book: Book) => {
     setSelectedBook(book);
     setIsBarcodeOpen(true);
+  };
+
+  const handleEditQuantity = (book: Book) => {
+    setSelectedBook(book);
+    quantityForm.reset({
+      totalQuantity: book.totalQuantity || 0,
+      readyQuantity: book.readyQuantity || 0,
+      printingQuantity: book.printingQuantity || 0,
+    });
+    setIsQuantityOpen(true);
   };
 
   const filteredBooks = books?.filter((b) => {
@@ -224,7 +313,8 @@ export default function BooksPage() {
   });
 
   const totalBooks = books?.length || 0;
-  const totalPrinted = books?.reduce((sum, b) => sum + b.printedCopies, 0) || 0;
+  const totalQuantity = books?.reduce((sum, b) => sum + (b.totalQuantity || 0), 0) || 0;
+  const totalReady = books?.reduce((sum, b) => sum + (b.readyQuantity || 0), 0) || 0;
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -315,15 +405,15 @@ export default function BooksPage() {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={addForm.control}
-                    name="printedCopies"
+                    name="totalQuantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>عدد النسخ المطبوعة</FormLabel>
+                        <FormLabel>الكمية الإجمالية</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} data-testid="input-book-copies" />
+                          <Input type="number" {...field} data-testid="input-book-total" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -331,18 +421,44 @@ export default function BooksPage() {
                   />
                   <FormField
                     control={addForm.control}
-                    name="price"
+                    name="readyQuantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>السعر (د.ج)</FormLabel>
+                        <FormLabel>الكمية الجاهزة</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
+                          <Input type="number" {...field} data-testid="input-book-ready" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addForm.control}
+                    name="printingQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>قيد الطباعة</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-book-printing" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+                <FormField
+                  control={addForm.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>السعر (د.ج)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" className="w-full" disabled={addMutation.isPending} data-testid="button-submit-book">
                   {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
                 </Button>
@@ -352,7 +468,7 @@ export default function BooksPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -370,11 +486,24 @@ export default function BooksPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-md bg-accent">
-                <TrendingUp className="h-6 w-6 text-primary" />
+                <Package className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalPrinted}</p>
-                <p className="text-sm text-muted-foreground">نسخ مطبوعة</p>
+                <p className="text-2xl font-bold">{totalQuantity}</p>
+                <p className="text-sm text-muted-foreground">الكمية الإجمالية</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-md bg-green-500/10">
+                <TrendingUp className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{totalReady}</p>
+                <p className="text-sm text-muted-foreground">نسخ جاهزة</p>
               </div>
             </div>
           </CardContent>
@@ -436,7 +565,7 @@ export default function BooksPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredBooks?.map((book) => (
-                <BookCard key={book.id} book={book} onViewBarcode={handleViewBarcode} />
+                <BookCard key={book.id} book={book} onViewBarcode={handleViewBarcode} onEditQuantity={handleEditQuantity} />
               ))}
             </div>
           )}
@@ -454,6 +583,79 @@ export default function BooksPage() {
               <p className="text-center text-sm text-muted-foreground">ISBN: {selectedBook.isbn}</p>
               <BarcodeGenerator value={selectedBook.barcode} />
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQuantityOpen} onOpenChange={setIsQuantityOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تحديث كميات الكتاب</DialogTitle>
+          </DialogHeader>
+          {selectedBook && (
+            <Form {...quantityForm}>
+              <form
+                onSubmit={quantityForm.handleSubmit((data) =>
+                  updateQuantityMutation.mutate({ bookId: selectedBook.id, data })
+                )}
+                className="space-y-4"
+              >
+                <p className="font-medium text-center">{selectedBook.title}</p>
+                <FormField
+                  control={quantityForm.control}
+                  name="totalQuantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>الكمية الإجمالية</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} data-testid="input-edit-total" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={quantityForm.control}
+                    name="readyQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>الكمية الجاهزة</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-edit-ready" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={quantityForm.control}
+                    name="printingQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>قيد الطباعة</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-edit-printing" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={updateQuantityMutation.isPending}
+                  data-testid="button-submit-quantity"
+                >
+                  {updateQuantityMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "تحديث الكميات"
+                  )}
+                </Button>
+              </form>
+            </Form>
           )}
         </DialogContent>
       </Dialog>

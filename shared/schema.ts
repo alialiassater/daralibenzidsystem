@@ -66,7 +66,10 @@ export const books = pgTable("books", {
   barcode: text("barcode").notNull().unique(),
   category: text("category").notNull().default("أخرى"), // تعليمي، ديني، أدبي، علمي، أطفال، أخرى
   coverImage: text("cover_image"), // مسار صورة الغلاف
-  printedCopies: integer("printed_copies").notNull().default(0),
+  totalQuantity: integer("total_quantity").notNull().default(0), // الكمية الإجمالية
+  readyQuantity: integer("ready_quantity").notNull().default(0), // الكمية الجاهزة
+  printingQuantity: integer("printing_quantity").notNull().default(0), // الكمية قيد الطباعة
+  status: text("status").notNull().default("unavailable"), // printing, ready, unavailable
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -155,8 +158,12 @@ export const insertBookSchema = createInsertSchema(books).omit({
   createdAt: true,
   barcode: true,
   coverImage: true,
+  status: true, // يتم حسابها تلقائياً
 }).extend({
   price: priceTransform,
+  totalQuantity: z.number().min(0).default(0),
+  readyQuantity: z.number().min(0).default(0),
+  printingQuantity: z.number().min(0).default(0),
 });
 
 export const insertExpenseSchema = createInsertSchema(expenses).omit({

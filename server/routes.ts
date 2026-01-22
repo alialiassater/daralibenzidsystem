@@ -204,6 +204,45 @@ export async function registerRoutes(
     }
   });
 
+  // تحديث كميات الكتاب
+  app.patch("/api/books/:id/quantities", async (req, res) => {
+    try {
+      const bookId = req.params.id as string;
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ message: "الكتاب غير موجود" });
+      }
+      
+      const { totalQuantity, readyQuantity, printingQuantity } = req.body;
+      
+      // التحقق من صحة الكميات
+      if (totalQuantity < 0 || readyQuantity < 0 || printingQuantity < 0) {
+        return res.status(400).json({ message: "الكميات يجب أن تكون أكبر من أو تساوي صفر" });
+      }
+      
+      // منع تسجيل كمية جاهزة أكبر من الكمية الإجمالية
+      if (readyQuantity > totalQuantity) {
+        return res.status(400).json({ message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية" });
+      }
+      
+      // منع الكمية قيد الطباعة من تجاوز الكمية المتبقية
+      if (readyQuantity + printingQuantity > totalQuantity) {
+        return res.status(400).json({ message: "مجموع الكمية الجاهزة وقيد الطباعة لا يمكن أن يتجاوز الكمية الإجمالية" });
+      }
+      
+      const updatedBook = await storage.updateBookQuantities(
+        bookId, 
+        totalQuantity, 
+        readyQuantity, 
+        printingQuantity
+      );
+      
+      res.json(updatedBook);
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في تحديث كميات الكتاب" });
+    }
+  });
+
   // رفع صورة غلاف الكتاب
   app.post("/api/books/:id/cover", uploadCover.single('cover'), async (req, res) => {
     try {

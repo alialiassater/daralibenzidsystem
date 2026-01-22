@@ -6,6 +6,7 @@ import {
   BookOpen,
   LogOut,
   User,
+  Users,
 } from "lucide-react";
 import logoImage from "@assets/image_1769118952560.png";
 import {
@@ -29,27 +30,52 @@ const menuItems = [
     title: "لوحة التحكم",
     url: "/",
     icon: LayoutDashboard,
+    page: "dashboard",
   },
   {
     title: "المخزون",
     url: "/inventory",
     icon: Package,
+    page: "inventory",
   },
   {
     title: "طلبات الطباعة",
     url: "/orders",
     icon: Printer,
+    page: "orders",
   },
   {
     title: "الكتب",
     url: "/books",
     icon: BookOpen,
+    page: "books",
+  },
+  {
+    title: "الموظفون",
+    url: "/employees",
+    icon: Users,
+    page: "employees",
   },
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, canAccessPage } = useAuth();
+
+  const filteredMenuItems = menuItems.filter((item) => canAccessPage(item.page));
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case "admin":
+        return "مدير النظام";
+      case "supervisor":
+        return "مشرف";
+      case "employee":
+        return "موظف";
+      default:
+        return "مستخدم";
+    }
+  };
 
   return (
     <Sidebar side="right" collapsible="icon">
@@ -67,7 +93,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>القائمة الرئيسية</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {filteredMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -95,7 +121,7 @@ export function AppSidebar() {
           <div className="flex flex-1 flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-medium">{user?.fullName}</span>
             <span className="text-xs text-muted-foreground">
-              {user?.role === "admin" ? "مدير النظام" : "موظف"}
+              {getRoleLabel(user?.role)}
             </span>
           </div>
           <Button

@@ -9,7 +9,8 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
-  role: text("role").notNull().default("employee"), // admin or employee
+  role: text("role").notNull().default("employee"), // admin, employee, supervisor
+  isActive: boolean("is_active").notNull().default(true), // لتعطيل المستخدم بدلاً من حذفه
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -22,6 +23,7 @@ export const materials = pgTable("materials", {
   minQuantity: integer("min_quantity").notNull().default(10),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   barcode: text("barcode").notNull().unique(),
+  isDeleted: boolean("is_deleted").notNull().default(false), // حذف منطقي
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -127,12 +129,20 @@ const priceTransform = z.union([z.string(), z.number()]).transform((val) => Stri
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+  isActive: true,
 });
+
+export const updateUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  password: true,
+}).partial();
 
 export const insertMaterialSchema = createInsertSchema(materials).omit({
   id: true,
   createdAt: true,
   barcode: true,
+  isDeleted: true,
 }).extend({
   price: priceTransform,
 });
@@ -175,6 +185,7 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type User = typeof users.$inferSelect;
 
 export type InsertMaterial = z.infer<typeof insertMaterialSchema>;

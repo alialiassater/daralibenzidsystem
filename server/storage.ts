@@ -1,6 +1,6 @@
 import {
   users, materials, inventoryMovements, printOrders, orderMaterials, books, expenses,
-  type User, type InsertUser,
+  type User, type InsertUser, type UpdateUser,
   type Material, type InsertMaterial,
   type InventoryMovement, type InsertInventoryMovement,
   type PrintOrder, type InsertPrintOrder,
@@ -8,19 +8,26 @@ import {
   type Expense, type InsertExpense,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, and, gte, lte, desc } from "drizzle-orm";
+import { eq, sql, and, gte, lte, desc, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // إدارة المستخدمين
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: UpdateUser): Promise<User>;
+  toggleUserActive(id: string, isActive: boolean): Promise<void>;
 
+  // إدارة المخزون
   getMaterials(): Promise<Material[]>;
   getMaterial(id: string): Promise<Material | undefined>;
   getMaterialByBarcode(barcode: string): Promise<Material | undefined>;
   createMaterial(material: InsertMaterial): Promise<Material>;
   updateMaterialQuantity(id: string, quantity: number): Promise<void>;
+  softDeleteMaterial(id: string): Promise<void>;
+  hasMaterialMovements(id: string): Promise<boolean>;
 
   getInventoryMovements(): Promise<(InventoryMovement & { material?: Material })[]>;
   createInventoryMovement(movement: InsertInventoryMovement): Promise<InventoryMovement>;
@@ -73,6 +80,7 @@ function calculateBookStatus(readyQuantity: number, printingQuantity: number): s
 }
 
 export class DatabaseStorage implements IStorage {
+  // ===== إدارة المستخدمين =====
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -83,13 +91,29 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
+  async updateUser(id: string, updates: UpdateUser): Promise<User> {
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async toggleUserActive(id: string, isActive: boolean): Promise<void> {
+    await db.update(users).set({ isActive }).where(eq(users.id, id));
+  }
+
+  // ===== إدارة المخزون =====
   async getMaterials(): Promise<Material[]> {
-    return db.select().from(materials).orderBy(desc(materials.createdAt));
+    return db.select().from(materials)
+      .where(eq(materials.isDeleted, false))
+      .orderBy(desc(materials.createdAt));
   }
 
   async getMaterial(id: string): Promise<Material | undefined> {
@@ -98,7 +122,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMaterialByBarcode(barcode: string): Promise<Material | undefined> {
-    const [material] = await db.select().from(materials).where(eq(materials.barcode, barcode));
+    const [material] = await db.select().from(materials)
+      .where(and(eq(materials.barcode, barcode), eq(materials.isDeleted, false)));
     return material || undefined;
   }
 
@@ -110,6 +135,17 @@ export class DatabaseStorage implements IStorage {
 
   async updateMaterialQuantity(id: string, quantity: number): Promise<void> {
     await db.update(materials).set({ quantity }).where(eq(materials.id, id));
+  }
+
+  async softDeleteMaterial(id: string): Promise<void> {
+    await db.update(materials).set({ isDeleted: true }).where(eq(materials.id, id));
+  }
+
+  async hasMaterialMovements(id: string): Promise<boolean> {
+    const movements = await db.select().from(inventoryMovements)
+      .where(eq(inventoryMovements.materialId, id))
+      .limit(1);
+    return movements.length > 0;
   }
 
   async getInventoryMovements(): Promise<(InventoryMovement & { material?: Material })[]> {

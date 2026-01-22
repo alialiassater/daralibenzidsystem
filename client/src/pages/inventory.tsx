@@ -16,8 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeGenerator } from "@/components/barcode-generator";
 import { BarcodeScanner } from "@/components/barcode-scanner";
-import { Plus, Package, ArrowUpCircle, ArrowDownCircle, Search, Loader2, QrCode, History } from "lucide-react";
+import { Plus, Package, ArrowUpCircle, ArrowDownCircle, Search, Loader2, QrCode, History, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/lib/auth-context";
 import type { Material, InventoryMovement } from "@shared/schema";
 
 const materialSchema = z.object({
@@ -70,8 +72,10 @@ export default function InventoryPage() {
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [isMovementOpen, setIsMovementOpen] = useState(false);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const { user, canDelete } = useAuth();
 
   const { data: materials, isLoading } = useQuery<Material[]>({
     queryKey: ["/api/materials"],
@@ -103,7 +107,8 @@ export default function InventoryPage() {
 
   const addMutation = useMutation({
     mutationFn: async (data: MaterialForm) => {
-      return apiRequest<Material>("POST", "/api/materials", data);
+      const res = await apiRequest("POST", "/api/materials", data);
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/materials"] });
@@ -134,6 +139,25 @@ export default function InventoryPage() {
     },
     onError: () => {
       toast({ title: "حدث خطأ أثناء التسجيل", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (materialId: string) => {
+      return apiRequest("DELETE", `/api/materials/${materialId}`, {
+        userRole: user?.role,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/materials"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsDeleteOpen(false);
+      setSelectedMaterial(null);
+      toast({ title: "تم حذف المادة بنجاح" });
+    },
+    onError: (error: any) => {
+      const message = error?.message || "حدث خطأ أثناء الحذف";
+      toast({ title: message, variant: "destructive" });
     },
   });
 
@@ -368,6 +392,20 @@ export default function InventoryPage() {
                             >
                               <QrCode className="h-4 w-4" />
                             </Button>
+                            {canDelete && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setSelectedMaterial(material);
+                                  setIsDeleteOpen(true);
+                                }}
+                                data-testid={`button-delete-${material.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -518,6 +556,30 @@ export default function InventoryPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف المادة</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف المادة "{selectedMaterial?.name}"؟
+              <br />
+              لن يتم حذف المادة نهائياً من قاعدة البيانات، ولكن لن تظهر في قائمة المواد.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel data-testid="button-cancel-delete">إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => selectedMaterial && deleteMutation.mutate(selectedMaterial.id)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "حذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

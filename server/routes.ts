@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertExpenseSchema } from "@shared/schema";
+import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -62,6 +62,11 @@ export async function registerRoutes(
         }
       }
       
+      // التحقق من أن المستخدم نشط
+      if (!user.isActive) {
+        return res.status(401).json({ message: "تم تعطيل هذا الحساب" });
+      }
+      
       if (user.password !== password) {
         return res.status(401).json({ message: "بيانات الدخول غير صحيحة" });
       }
@@ -69,6 +74,90 @@ export async function registerRoutes(
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "خطأ في الخادم" });
+    }
+  });
+
+  // ===== إدارة المستخدمين =====
+  app.get("/api/users", async (req, res) => {
+    try {
+      const usersList = await storage.getUsers();
+      // إخفاء كلمات المرور من الاستجابة
+      const usersWithoutPassword = usersList.map(({ password, ...user }) => user);
+      res.json(usersWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في جلب المستخدمين" });
+    }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      
+      // التحقق من عدم وجود اسم مستخدم مكرر
+      const existingUser = await storage.getUserByUsername(validatedData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "اسم المستخدم موجود مسبقاً" });
+      }
+      
+      const user = await storage.createUser(validatedData);
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: error.errors });
+      }
+      res.status(500).json({ message: "خطأ في إضافة المستخدم" });
+    }
+  });
+
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const validatedData = updateUserSchema.parse(req.body);
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      
+      // التحقق من عدم تكرار اسم المستخدم
+      if (validatedData.username && validatedData.username !== user.username) {
+        const existingUser = await storage.getUserByUsername(validatedData.username);
+        if (existingUser) {
+          return res.status(400).json({ message: "اسم المستخدم موجود مسبقاً" });
+        }
+      }
+      
+      const updatedUser = await storage.updateUser(userId, validatedData);
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: error.errors });
+      }
+      res.status(500).json({ message: "خطأ في تحديث المستخدم" });
+    }
+  });
+
+  app.patch("/api/users/:id/toggle-active", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const { isActive } = req.body;
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      
+      // منع تعطيل المدير الرئيسي
+      if (user.username === "admin" && !isActive) {
+        return res.status(400).json({ message: "لا يمكن تعطيل حساب المدير الرئيسي" });
+      }
+      
+      await storage.toggleUserActive(userId, isActive);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في تحديث حالة المستخدم" });
     }
   });
 
@@ -104,6 +193,32 @@ export async function registerRoutes(
       res.json(material);
     } catch (error) {
       res.status(500).json({ message: "خطأ في جلب المادة" });
+    }
+  });
+
+  // حذف مادة (Soft Delete)
+  app.delete("/api/materials/:id", async (req, res) => {
+    try {
+      const { userRole } = req.body;
+      const materialId = req.params.id;
+      
+      const material = await storage.getMaterial(materialId);
+      if (!material) {
+        return res.status(404).json({ message: "المادة غير موجودة" });
+      }
+      
+      // التحقق من وجود حركات مسجلة للمادة
+      const hasMovements = await storage.hasMaterialMovements(materialId);
+      if (hasMovements && userRole !== "admin") {
+        return res.status(403).json({ 
+          message: "لا يمكن حذف مادة لها حركات مسجلة. يتطلب صلاحية المدير" 
+        });
+      }
+      
+      await storage.softDeleteMaterial(materialId);
+      res.json({ success: true, message: "تم حذف المادة بنجاح" });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في حذف المادة" });
     }
   });
 

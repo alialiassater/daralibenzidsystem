@@ -1,14 +1,31 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import type { User } from "@shared/schema";
 
+type UserRole = "admin" | "employee" | "supervisor";
+
 interface AuthContextType {
   user: User | null;
   login: (user: User) => void;
   logout: () => void;
   isLoading: boolean;
+  isAdmin: boolean;
+  isSupervisor: boolean;
+  isEmployee: boolean;
+  canAccessPage: (page: string) => boolean;
+  canDelete: boolean;
+  canManageEmployees: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const pagePermissions: Record<string, UserRole[]> = {
+  dashboard: ["admin", "supervisor", "employee"],
+  inventory: ["admin", "supervisor", "employee"],
+  orders: ["admin", "supervisor", "employee"],
+  books: ["admin", "supervisor", "employee"],
+  expenses: ["admin", "supervisor"],
+  employees: ["admin"],
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -32,8 +49,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("user");
   };
 
+  const role = user?.role as UserRole | undefined;
+  const isAdmin = role === "admin";
+  const isSupervisor = role === "supervisor";
+  const isEmployee = role === "employee";
+  const canDelete = isAdmin;
+  const canManageEmployees = isAdmin;
+
+  const canAccessPage = (page: string): boolean => {
+    if (!role) return false;
+    const allowedRoles = pagePermissions[page];
+    return allowedRoles ? allowedRoles.includes(role) : true;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout, 
+      isLoading, 
+      isAdmin, 
+      isSupervisor, 
+      isEmployee,
+      canAccessPage,
+      canDelete,
+      canManageEmployees 
+    }}>
       {children}
     </AuthContext.Provider>
   );

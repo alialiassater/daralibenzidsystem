@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,6 +13,31 @@ import DashboardPage from "@/pages/dashboard";
 import InventoryPage from "@/pages/inventory";
 import OrdersPage from "@/pages/orders";
 import BooksPage from "@/pages/books";
+import EmployeesPage from "@/pages/employees";
+
+function ProtectedRoute({ 
+  component: Component, 
+  page 
+}: { 
+  component: React.ComponentType; 
+  page: string;
+}) {
+  const { canAccessPage, isLoading, user } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-pulse text-muted-foreground">جاري التحميل...</div>
+      </div>
+    );
+  }
+  
+  if (!user || !canAccessPage(page)) {
+    return <Redirect to="/" />;
+  }
+  
+  return <Component />;
+}
 
 function Router() {
   return (
@@ -21,6 +46,9 @@ function Router() {
       <Route path="/inventory" component={InventoryPage} />
       <Route path="/orders" component={OrdersPage} />
       <Route path="/books" component={BooksPage} />
+      <Route path="/employees">
+        {() => <ProtectedRoute component={EmployeesPage} page="employees" />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

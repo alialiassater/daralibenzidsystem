@@ -55,6 +55,8 @@ export interface IStorage {
     totalBooks: number;
     totalPrintedCopies: number;
     totalExpenses: number;
+    readyBooksCount: number;
+    readyBooksQuantity: number;
     lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
     recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
   }>;
@@ -253,6 +255,9 @@ export class DatabaseStorage implements IStorage {
 
     const allBooks = await this.getBooks();
     const totalPrintedCopies = allBooks.reduce((sum, b) => sum + (b.totalQuantity || 0), 0);
+    const readyBooks = allBooks.filter(b => b.status === 'ready');
+    const readyBooksCount = readyBooks.length;
+    const readyBooksQuantity = readyBooks.reduce((sum, b) => sum + (b.readyQuantity || 0), 0);
 
     const allExpenses = await this.getExpenses();
     const totalExpenses = allExpenses
@@ -267,6 +272,8 @@ export class DatabaseStorage implements IStorage {
       totalBooks: allBooks.length,
       totalPrintedCopies,
       totalExpenses,
+      readyBooksCount,
+      readyBooksQuantity,
       lowStockItems: lowStockItems.slice(0, 5).map(m => ({
         id: m.id,
         name: m.name,

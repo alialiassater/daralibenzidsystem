@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Printer, BookOpen, AlertTriangle } from "lucide-react";
+import { Package, Printer, BookOpen, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -13,6 +13,8 @@ interface DashboardStats {
   totalBooks: number;
   totalPrintedCopies: number;
   totalExpenses: number;
+  readyBooksCount: number;
+  readyBooksQuantity: number;
   lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
   recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
 }
@@ -88,7 +90,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground mt-1">نظرة عامة على المطبعة ودار النشر</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="إجمالي المخزون"
           value={stats?.totalMaterials || 0}
@@ -106,6 +108,12 @@ export default function DashboardPage() {
           value={stats?.totalBooks || 0}
           icon={BookOpen}
           description={`${stats?.totalPrintedCopies || 0} نسخة مطبوعة`}
+        />
+        <StatCard
+          title="الكتب الجاهزة"
+          value={stats?.readyBooksCount || 0}
+          icon={CheckCircle2}
+          description={`${stats?.readyBooksQuantity || 0} نسخة جاهزة`}
         />
         <StatCard
           title="المصروفات الشهرية"

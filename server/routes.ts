@@ -1,8 +1,41 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertSaleSchema, insertExpenseSchema } from "@shared/schema";
+import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertExpenseSchema } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// إعداد Multer لرفع صور الأغلفة
+const uploadsDir = path.join(process.cwd(), "uploads", "covers");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const coverStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'cover-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadCover = multer({
+  storage: coverStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('نوع الملف غير مدعوم'));
+  }
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -171,54 +204,25 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/books/:id/sell", async (req, res) => {
+  // رفع صورة غلاف الكتاب
+  app.post("/api/books/:id/cover", uploadCover.single('cover'), async (req, res) => {
     try {
-      const { quantity } = req.body;
-      const book = await storage.getBook(req.params.id);
-      
+      const bookId = req.params.id as string;
+      const book = await storage.getBook(bookId);
       if (!book) {
         return res.status(404).json({ message: "الكتاب غير موجود" });
       }
       
-      const remaining = book.printedCopies - book.soldCopies;
-      if (quantity > remaining) {
-        return res.status(400).json({ message: "الكمية المطلوبة أكبر من المتوفر" });
+      if (!req.file) {
+        return res.status(400).json({ message: "لم يتم رفع أي ملف" });
       }
       
-      // Update sold copies
-      await storage.updateBookSoldCopies(book.id, book.soldCopies + quantity);
+      const coverPath = `/uploads/covers/${req.file.filename}`;
+      await storage.updateBookCover(book.id, coverPath);
       
-      // Create sale record
-      const totalAmount = Number(book.price) * quantity;
-      await storage.createSale({
-        bookId: book.id,
-        quantity,
-        totalAmount: totalAmount.toString(),
-        saleType: "book",
-      });
-      
-      res.json({ success: true });
+      res.json({ success: true, coverImage: coverPath });
     } catch (error) {
-      res.status(500).json({ message: "خطأ في عملية البيع" });
-    }
-  });
-
-  // Sales routes
-  app.get("/api/sales", async (req, res) => {
-    try {
-      const salesList = await storage.getSales();
-      res.json(salesList);
-    } catch (error) {
-      res.status(500).json({ message: "خطأ في جلب المبيعات" });
-    }
-  });
-
-  app.get("/api/sales/stats", async (req, res) => {
-    try {
-      const stats = await storage.getSalesStats();
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ message: "خطأ في جلب الإحصائيات" });
+      res.status(500).json({ message: "خطأ في رفع صورة الغلاف" });
     }
   });
 

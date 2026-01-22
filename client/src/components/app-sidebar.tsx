@@ -4,7 +4,6 @@ import {
   Package,
   Printer,
   BookOpen,
-  DollarSign,
   LogOut,
   User,
 } from "lucide-react";
@@ -45,11 +44,6 @@ const menuItems = [
     title: "الكتب",
     url: "/books",
     icon: BookOpen,
-  },
-  {
-    title: "المبيعات والمحاسبة",
-    url: "/sales",
-    icon: DollarSign,
   },
 ];
 

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Printer, BookOpen, DollarSign, AlertTriangle, TrendingUp } from "lucide-react";
+import { Package, Printer, BookOpen, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface DashboardStats {
   totalMaterials: number;
@@ -11,24 +11,19 @@ interface DashboardStats {
   totalOrders: number;
   pendingOrders: number;
   totalBooks: number;
-  totalBooksSold: number;
-  todaySales: number;
-  monthSales: number;
+  totalPrintedCopies: number;
   totalExpenses: number;
-  profit: number;
   lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
   recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
-  salesByMonth: Array<{ month: string; amount: number }>;
 }
 
 const COLORS = ["hsl(217, 91%, 60%)", "hsl(142, 76%, 36%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(0, 84%, 60%)"];
 
-function StatCard({ title, value, icon: Icon, description, trend }: {
+function StatCard({ title, value, icon: Icon, description }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
   description?: string;
-  trend?: "up" | "down" | "neutral";
 }) {
   return (
     <Card>
@@ -39,10 +34,7 @@ function StatCard({ title, value, icon: Icon, description, trend }: {
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
         {description && (
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            {trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
-            {description}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
       </CardContent>
     </Card>
@@ -64,24 +56,6 @@ function LoadingSkeleton() {
           </Card>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-5 w-32" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-5 w-32" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
@@ -99,6 +73,13 @@ export default function DashboardPage() {
     { name: "قيد الانتظار", value: stats?.pendingOrders || 0 },
     { name: "مكتملة", value: (stats?.totalOrders || 0) - (stats?.pendingOrders || 0) },
   ];
+
+  const statusLabels: Record<string, string> = {
+    pending: "قيد الانتظار",
+    in_progress: "قيد التنفيذ",
+    completed: "مكتمل",
+    cancelled: "ملغي",
+  };
 
   return (
     <div className="space-y-6">
@@ -124,45 +105,17 @@ export default function DashboardPage() {
           title="الكتب المنشورة"
           value={stats?.totalBooks || 0}
           icon={BookOpen}
-          description={`${stats?.totalBooksSold || 0} نسخة مباعة`}
+          description={`${stats?.totalPrintedCopies || 0} نسخة مطبوعة`}
         />
         <StatCard
-          title="مبيعات اليوم"
-          value={`${Number(stats?.todaySales || 0).toLocaleString()} د.ج`}
-          icon={DollarSign}
-          trend="up"
-          description="إجمالي المبيعات اليومية"
+          title="المصروفات الشهرية"
+          value={`${Number(stats?.totalExpenses || 0).toLocaleString()} د.ج`}
+          icon={Package}
+          description="إجمالي مصروفات الشهر"
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              المبيعات الشهرية
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats?.salesByMonth || []}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    borderColor: "hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: number) => [`${value.toLocaleString()} د.ج`, "المبيعات"]}
-                />
-                <Bar dataKey="amount" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -171,7 +124,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={orderStatusData}
@@ -199,9 +152,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -237,38 +188,43 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              ملخص مالي
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 rounded-md bg-muted/50">
-                <span className="text-muted-foreground">مبيعات الشهر</span>
-                <span className="font-bold text-lg">
-                  {Number(stats?.monthSales || 0).toLocaleString()} د.ج
-                </span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded-md bg-muted/50">
-                <span className="text-muted-foreground">المصروفات</span>
-                <span className="font-bold text-lg text-destructive">
-                  {Number(stats?.totalExpenses || 0).toLocaleString()} د.ج
-                </span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded-md bg-primary/10 border border-primary/20">
-                <span className="font-medium">صافي الربح</span>
-                <span className="font-bold text-xl text-primary">
-                  {Number(stats?.profit || 0).toLocaleString()} د.ج
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="h-5 w-5" />
+            آخر الطلبات
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats?.recentOrders && stats.recentOrders.length > 0 ? (
+            <div className="space-y-3">
+              {stats.recentOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="flex items-center justify-between p-3 rounded-md bg-muted/50"
+                >
+                  <div>
+                    <p className="font-medium">{order.customerName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {Number(order.cost).toLocaleString()} د.ج
+                    </p>
+                  </div>
+                  <Badge variant={order.status === "completed" ? "default" : "secondary"}>
+                    {statusLabels[order.status] || order.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Printer className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>لا توجد طلبات حالياً</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

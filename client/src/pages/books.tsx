@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,29 +9,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeGenerator } from "@/components/barcode-generator";
-import { BarcodeScanner } from "@/components/barcode-scanner";
-import { Plus, BookOpen, Search, Loader2, QrCode, ShoppingCart, TrendingUp } from "lucide-react";
+import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Book } from "@shared/schema";
+
+const BOOK_CATEGORIES = [
+  { value: "تعليمي", label: "تعليمي" },
+  { value: "ديني", label: "ديني" },
+  { value: "أدبي", label: "أدبي" },
+  { value: "علمي", label: "علمي" },
+  { value: "أطفال", label: "أطفال" },
+  { value: "تاريخي", label: "تاريخي" },
+  { value: "فلسفي", label: "فلسفي" },
+  { value: "أخرى", label: "أخرى" },
+];
 
 const bookSchema = z.object({
   title: z.string().min(1, "اسم الكتاب مطلوب"),
   author: z.string().min(1, "اسم المؤلف مطلوب"),
   isbn: z.string().min(1, "رقم ISBN مطلوب"),
+  category: z.string().min(1, "الصنف مطلوب"),
   printedCopies: z.coerce.number().min(0, "عدد النسخ مطلوب"),
   price: z.coerce.number().min(0, "السعر مطلوب"),
 });
 
-const sellSchema = z.object({
-  quantity: z.coerce.number().min(1, "الكمية مطلوبة"),
-});
-
 type BookForm = z.infer<typeof bookSchema>;
-type SellForm = z.infer<typeof sellSchema>;
 
 function LoadingSkeleton() {
   return (
@@ -50,25 +56,121 @@ function LoadingSkeleton() {
           </Card>
         ))}
       </div>
-      <Card>
-        <CardContent className="p-0">
-          <div className="space-y-4 p-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
+  );
+}
+
+function BookCard({ book, onViewBarcode }: { book: Book; onViewBarcode: (book: Book) => void }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('cover', file);
+
+    try {
+      const response = await fetch(`/api/books/${book.id}/cover`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      toast({ title: "تم رفع صورة الغلاف بنجاح" });
+    } catch {
+      toast({ title: "حدث خطأ أثناء رفع الصورة", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const categoryColors: Record<string, string> = {
+    "تعليمي": "bg-blue-500/10 text-blue-600",
+    "ديني": "bg-green-500/10 text-green-600",
+    "أدبي": "bg-purple-500/10 text-purple-600",
+    "علمي": "bg-orange-500/10 text-orange-600",
+    "أطفال": "bg-pink-500/10 text-pink-600",
+    "تاريخي": "bg-amber-500/10 text-amber-600",
+    "فلسفي": "bg-indigo-500/10 text-indigo-600",
+    "أخرى": "bg-gray-500/10 text-gray-600",
+  };
+
+  return (
+    <Card className="overflow-hidden" data-testid={`card-book-${book.id}`}>
+      <div className="aspect-[3/4] relative bg-muted">
+        {book.coverImage ? (
+          <img
+            src={book.coverImage}
+            alt={book.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <BookOpen className="h-16 w-16 text-muted-foreground/50" />
+          </div>
+        )}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          className="hidden"
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          className="absolute bottom-2 left-2"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          data-testid={`button-upload-cover-${book.id}`}
+        >
+          {isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Upload className="h-4 w-4 ml-1" />
+              {book.coverImage ? "تغيير" : "رفع غلاف"}
+            </>
+          )}
+        </Button>
+      </div>
+      <CardContent className="p-4 space-y-3">
+        <div>
+          <h3 className="font-bold text-lg line-clamp-2">{book.title}</h3>
+          <p className="text-muted-foreground text-sm">{book.author}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge className={categoryColors[book.category] || categoryColors["أخرى"]} variant="secondary">
+            {book.category}
+          </Badge>
+          <Badge variant="outline">{book.printedCopies} نسخة</Badge>
+        </div>
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="font-bold text-primary">{Number(book.price).toLocaleString()} د.ج</span>
+          <Button size="icon" variant="ghost" onClick={() => onViewBarcode(book)} data-testid={`button-barcode-book-${book.id}`}>
+            <QrCode className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground font-mono">ISBN: {book.isbn}</p>
+      </CardContent>
+    </Card>
   );
 }
 
 export default function BooksPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [isSellOpen, setIsSellOpen] = useState(false);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const { data: books, isLoading } = useQuery<Book[]>({
@@ -81,21 +183,16 @@ export default function BooksPage() {
       title: "",
       author: "",
       isbn: "",
+      category: "أخرى",
       printedCopies: 0,
       price: 0,
     },
   });
 
-  const sellForm = useForm<SellForm>({
-    resolver: zodResolver(sellSchema),
-    defaultValues: {
-      quantity: 1,
-    },
-  });
-
   const addMutation = useMutation({
     mutationFn: async (data: BookForm) => {
-      return apiRequest<Book>("POST", "/api/books", data);
+      const response = await apiRequest("POST", "/api/books", data);
+      return response.json() as Promise<Book>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/books"] });
@@ -109,46 +206,25 @@ export default function BooksPage() {
     },
   });
 
-  const sellMutation = useMutation({
-    mutationFn: async (data: SellForm) => {
-      return apiRequest("POST", `/api/books/${selectedBook?.id}/sell`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      setIsSellOpen(false);
-      sellForm.reset();
-      toast({ title: "تم تسجيل البيع بنجاح" });
-    },
-    onError: () => {
-      toast({ title: "حدث خطأ أثناء البيع", variant: "destructive" });
-    },
-  });
-
-  const handleBarcodeScan = (barcode: string) => {
-    const book = books?.find((b) => b.barcode === barcode || b.isbn === barcode);
-    if (book) {
-      setSelectedBook(book);
-      setIsSellOpen(true);
-      toast({ title: `تم العثور على: ${book.title}` });
-    } else {
-      toast({ title: "لم يتم العثور على الكتاب", variant: "destructive" });
-    }
+  const handleViewBarcode = (book: Book) => {
+    setSelectedBook(book);
+    setIsBarcodeOpen(true);
   };
 
-  const filteredBooks = books?.filter(
-    (b) =>
+  const filteredBooks = books?.filter((b) => {
+    const matchesSearch = 
       b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.isbn.includes(searchQuery) ||
-      b.barcode.includes(searchQuery)
-  );
+      b.barcode.includes(searchQuery);
+    
+    const matchesCategory = categoryFilter === "all" || b.category === categoryFilter;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   const totalBooks = books?.length || 0;
   const totalPrinted = books?.reduce((sum, b) => sum + b.printedCopies, 0) || 0;
-  const totalSold = books?.reduce((sum, b) => sum + b.soldCopies, 0) || 0;
-  const totalRemaining = totalPrinted - totalSold;
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -159,7 +235,7 @@ export default function BooksPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">إدارة الكتب</h1>
-          <p className="text-muted-foreground mt-1">إدارة كتب دار النشر مع دعم الباركود</p>
+          <p className="text-muted-foreground mt-1">إدارة كتب دار النشر مع دعم الباركود وصور الأغلفة</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
@@ -200,19 +276,45 @@ export default function BooksPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={addForm.control}
-                  name="isbn"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>رقم ISBN</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-book-isbn" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={addForm.control}
+                    name="isbn"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>رقم ISBN</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-book-isbn" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addForm.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>الصنف</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-book-category">
+                              <SelectValue placeholder="اختر الصنف" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BOOK_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={addForm.control}
@@ -250,7 +352,7 @@ export default function BooksPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -280,25 +382,12 @@ export default function BooksPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-md bg-green-500/10">
-                <ShoppingCart className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{totalSold}</p>
-                <p className="text-sm text-muted-foreground">نسخ مباعة</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
               <div className="p-3 rounded-md bg-muted">
-                <BookOpen className="h-6 w-6 text-muted-foreground" />
+                <Image className="h-6 w-6 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalRemaining}</p>
-                <p className="text-sm text-muted-foreground">نسخ متبقية</p>
+                <p className="text-2xl font-bold">{books?.filter(b => b.coverImage).length || 0}</p>
+                <p className="text-sm text-muted-foreground">كتب بأغلفة</p>
               </div>
             </div>
           </CardContent>
@@ -307,7 +396,11 @@ export default function BooksPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            الكتب المنشورة
+          </CardTitle>
+          <div className="flex flex-col sm:flex-row gap-4 mt-4">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -318,134 +411,37 @@ export default function BooksPage() {
                 data-testid="input-search-book"
               />
             </div>
-            <BarcodeScanner onScan={handleBarcodeScan} placeholder="مسح الباركود للبيع" />
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full sm:w-48" data-testid="select-filter-category">
+                <SelectValue placeholder="جميع الأصناف" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">جميع الأصناف</SelectItem>
+                {BOOK_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>الكتاب</TableHead>
-                <TableHead>المؤلف</TableHead>
-                <TableHead>ISBN</TableHead>
-                <TableHead>المطبوعة</TableHead>
-                <TableHead>المباعة</TableHead>
-                <TableHead>المتبقية</TableHead>
-                <TableHead>السعر</TableHead>
-                <TableHead>الإجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBooks?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    لا توجد كتب
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredBooks?.map((book) => {
-                  const remaining = book.printedCopies - book.soldCopies;
-                  return (
-                    <TableRow key={book.id} data-testid={`row-book-${book.id}`}>
-                      <TableCell className="font-medium">{book.title}</TableCell>
-                      <TableCell>{book.author}</TableCell>
-                      <TableCell className="font-mono text-sm">{book.isbn}</TableCell>
-                      <TableCell>{book.printedCopies}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{book.soldCopies}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={remaining <= 10 ? "destructive" : "secondary"}>
-                          {remaining}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{Number(book.price).toLocaleString()} د.ج</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedBook(book);
-                              setIsSellOpen(true);
-                            }}
-                            disabled={remaining <= 0}
-                            data-testid={`button-sell-book-${book.id}`}
-                          >
-                            <ShoppingCart className="h-4 w-4 ml-1" />
-                            بيع
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedBook(book);
-                              setIsBarcodeOpen(true);
-                            }}
-                            data-testid={`button-barcode-book-${book.id}`}
-                          >
-                            <QrCode className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Dialog open={isSellOpen} onOpenChange={setIsSellOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>بيع كتاب</DialogTitle>
-          </DialogHeader>
-          {selectedBook && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-md">
-                <p className="font-bold text-lg">{selectedBook.title}</p>
-                <p className="text-muted-foreground">{selectedBook.author}</p>
-                <div className="mt-2 flex gap-4">
-                  <span className="text-sm">السعر: {Number(selectedBook.price).toLocaleString()} د.ج</span>
-                  <span className="text-sm">المتبقي: {selectedBook.printedCopies - selectedBook.soldCopies}</span>
-                </div>
-              </div>
-              <Form {...sellForm}>
-                <form onSubmit={sellForm.handleSubmit((data) => sellMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={sellForm.control}
-                    name="quantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>عدد النسخ</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            max={selectedBook.printedCopies - selectedBook.soldCopies}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="p-3 bg-primary/10 rounded-md text-center">
-                    <p className="text-sm text-muted-foreground">الإجمالي</p>
-                    <p className="text-2xl font-bold text-primary">
-                      {(Number(selectedBook.price) * (sellForm.watch("quantity") || 0)).toLocaleString()} د.ج
-                    </p>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={sellMutation.isPending}>
-                    {sellMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "تأكيد البيع"}
-                  </Button>
-                </form>
-              </Form>
+        <CardContent>
+          {filteredBooks?.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <BookOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">لا توجد كتب</p>
+              <p className="text-sm">ابدأ بإضافة كتاب جديد</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredBooks?.map((book) => (
+                <BookCard key={book.id} book={book} onViewBarcode={handleViewBarcode} />
+              ))}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
 
       <Dialog open={isBarcodeOpen} onOpenChange={setIsBarcodeOpen}>
         <DialogContent>

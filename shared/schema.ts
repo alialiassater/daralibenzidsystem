@@ -64,20 +64,10 @@ export const books = pgTable("books", {
   author: text("author").notNull(),
   isbn: text("isbn").notNull().unique(),
   barcode: text("barcode").notNull().unique(),
+  category: text("category").notNull().default("أخرى"), // تعليمي، ديني، أدبي، علمي، أطفال، أخرى
+  coverImage: text("cover_image"), // مسار صورة الغلاف
   printedCopies: integer("printed_copies").notNull().default(0),
-  soldCopies: integer("sold_copies").notNull().default(0),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Sales transactions
-export const sales = pgTable("sales", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  bookId: varchar("book_id").references(() => books.id),
-  quantity: integer("quantity").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  saleType: text("sale_type").notNull(), // book or service
-  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -126,16 +116,6 @@ export const orderMaterialsRelations = relations(orderMaterials, ({ one }) => ({
   }),
 }));
 
-export const booksRelations = relations(books, ({ many }) => ({
-  sales: many(sales),
-}));
-
-export const salesRelations = relations(sales, ({ one }) => ({
-  book: one(books, {
-    fields: [sales.bookId],
-    references: [books.id],
-  }),
-}));
 
 // Helper for price/amount fields - accepts number or string, outputs string
 const priceTransform = z.union([z.string(), z.number()]).transform((val) => String(val));
@@ -174,16 +154,9 @@ export const insertBookSchema = createInsertSchema(books).omit({
   id: true,
   createdAt: true,
   barcode: true,
-  soldCopies: true,
+  coverImage: true,
 }).extend({
   price: priceTransform,
-});
-
-export const insertSaleSchema = createInsertSchema(sales).omit({
-  id: true,
-  createdAt: true,
-}).extend({
-  totalAmount: priceTransform,
 });
 
 export const insertExpenseSchema = createInsertSchema(expenses).omit({
@@ -211,9 +184,6 @@ export type OrderMaterial = typeof orderMaterials.$inferSelect;
 
 export type InsertBook = z.infer<typeof insertBookSchema>;
 export type Book = typeof books.$inferSelect;
-
-export type InsertSale = z.infer<typeof insertSaleSchema>;
-export type Sale = typeof sales.$inferSelect;
 
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type Expense = typeof expenses.$inferSelect;

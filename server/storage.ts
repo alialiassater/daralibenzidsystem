@@ -1,11 +1,10 @@
 import {
-  users, materials, inventoryMovements, printOrders, orderMaterials, books, sales, expenses,
+  users, materials, inventoryMovements, printOrders, orderMaterials, books, expenses,
   type User, type InsertUser,
   type Material, type InsertMaterial,
   type InventoryMovement, type InsertInventoryMovement,
   type PrintOrder, type InsertPrintOrder,
   type Book, type InsertBook,
-  type Sale, type InsertSale,
   type Expense, type InsertExpense,
 } from "@shared/schema";
 import { db } from "./db";
@@ -35,10 +34,7 @@ export interface IStorage {
   getBook(id: string): Promise<Book | undefined>;
   getBookByBarcode(barcode: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
-  updateBookSoldCopies(id: string, soldCopies: number): Promise<void>;
-
-  getSales(): Promise<(Sale & { book?: { title: string } })[]>;
-  createSale(sale: InsertSale): Promise<Sale>;
+  updateBookCover(id: string, coverPath: string): Promise<void>;
 
   getExpenses(): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
@@ -49,23 +45,10 @@ export interface IStorage {
     totalOrders: number;
     pendingOrders: number;
     totalBooks: number;
-    totalBooksSold: number;
-    todaySales: number;
-    monthSales: number;
+    totalPrintedCopies: number;
     totalExpenses: number;
-    profit: number;
     lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
     recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
-    salesByMonth: Array<{ month: string; amount: number }>;
-  }>;
-
-  getSalesStats(): Promise<{
-    todaySales: number;
-    weekSales: number;
-    monthSales: number;
-    todayExpenses: number;
-    monthExpenses: number;
-    profit: number;
   }>;
 }
 
@@ -166,33 +149,12 @@ export class DatabaseStorage implements IStorage {
 
   async createBook(insertBook: InsertBook): Promise<Book> {
     const barcode = generateBookBarcode();
-    const [book] = await db.insert(books).values({ ...insertBook, barcode, soldCopies: 0 }).returning();
+    const [book] = await db.insert(books).values({ ...insertBook, barcode }).returning();
     return book;
   }
 
-  async updateBookSoldCopies(id: string, soldCopies: number): Promise<void> {
-    await db.update(books).set({ soldCopies }).where(eq(books.id, id));
-  }
-
-  async getSales(): Promise<(Sale & { book?: { title: string } })[]> {
-    const salesList = await db.select().from(sales).orderBy(desc(sales.createdAt));
-    const result = [];
-    for (const sale of salesList) {
-      let book = undefined;
-      if (sale.bookId) {
-        const bookData = await this.getBook(sale.bookId);
-        if (bookData) {
-          book = { title: bookData.title };
-        }
-      }
-      result.push({ ...sale, book });
-    }
-    return result;
-  }
-
-  async createSale(insertSale: InsertSale): Promise<Sale> {
-    const [sale] = await db.insert(sales).values(insertSale).returning();
-    return sale;
+  async updateBookCover(id: string, coverPath: string): Promise<void> {
+    await db.update(books).set({ coverImage: coverPath }).where(eq(books.id, id));
   }
 
   async getExpenses(): Promise<Expense[]> {
@@ -206,7 +168,6 @@ export class DatabaseStorage implements IStorage {
 
   async getDashboardStats() {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const allMaterials = await this.getMaterials();
@@ -216,22 +177,12 @@ export class DatabaseStorage implements IStorage {
     const pendingOrders = allOrders.filter(o => o.status === 'pending' || o.status === 'in_progress');
 
     const allBooks = await this.getBooks();
-    const totalBooksSold = allBooks.reduce((sum, b) => sum + b.soldCopies, 0);
-
-    const allSales = await this.getSales();
-    const todaySales = allSales
-      .filter(s => s.createdAt && new Date(s.createdAt) >= startOfDay)
-      .reduce((sum, s) => sum + Number(s.totalAmount), 0);
-    const monthSales = allSales
-      .filter(s => s.createdAt && new Date(s.createdAt) >= startOfMonth)
-      .reduce((sum, s) => sum + Number(s.totalAmount), 0);
+    const totalPrintedCopies = allBooks.reduce((sum, b) => sum + b.printedCopies, 0);
 
     const allExpenses = await this.getExpenses();
     const totalExpenses = allExpenses
       .filter(e => e.createdAt && new Date(e.createdAt) >= startOfMonth)
       .reduce((sum, e) => sum + Number(e.amount), 0);
-
-    const salesByMonth = this.calculateSalesByMonth(allSales);
 
     return {
       totalMaterials: allMaterials.length,
@@ -239,11 +190,8 @@ export class DatabaseStorage implements IStorage {
       totalOrders: allOrders.length,
       pendingOrders: pendingOrders.length,
       totalBooks: allBooks.length,
-      totalBooksSold,
-      todaySales,
-      monthSales,
+      totalPrintedCopies,
       totalExpenses,
-      profit: monthSales - totalExpenses,
       lowStockItems: lowStockItems.slice(0, 5).map(m => ({
         id: m.id,
         name: m.name,
@@ -256,59 +204,6 @@ export class DatabaseStorage implements IStorage {
         status: o.status,
         cost: o.cost,
       })),
-      salesByMonth,
-    };
-  }
-
-  private calculateSalesByMonth(salesList: Sale[]): Array<{ month: string; amount: number }> {
-    const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-    const currentMonth = new Date().getMonth();
-    const result: Array<{ month: string; amount: number }> = [];
-
-    for (let i = 5; i >= 0; i--) {
-      const monthIndex = (currentMonth - i + 12) % 12;
-      const amount = salesList
-        .filter(s => s.createdAt && new Date(s.createdAt).getMonth() === monthIndex)
-        .reduce((sum, s) => sum + Number(s.totalAmount), 0);
-      result.push({ month: months[monthIndex], amount });
-    }
-
-    return result;
-  }
-
-  async getSalesStats() {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const allSales = await this.getSales();
-    const todaySales = allSales
-      .filter(s => s.createdAt && new Date(s.createdAt) >= startOfDay)
-      .reduce((sum, s) => sum + Number(s.totalAmount), 0);
-    const weekSales = allSales
-      .filter(s => s.createdAt && new Date(s.createdAt) >= startOfWeek)
-      .reduce((sum, s) => sum + Number(s.totalAmount), 0);
-    const monthSales = allSales
-      .filter(s => s.createdAt && new Date(s.createdAt) >= startOfMonth)
-      .reduce((sum, s) => sum + Number(s.totalAmount), 0);
-
-    const allExpenses = await this.getExpenses();
-    const todayExpenses = allExpenses
-      .filter(e => e.createdAt && new Date(e.createdAt) >= startOfDay)
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-    const monthExpenses = allExpenses
-      .filter(e => e.createdAt && new Date(e.createdAt) >= startOfMonth)
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-
-    return {
-      todaySales,
-      weekSales,
-      monthSales,
-      todayExpenses,
-      monthExpenses,
-      profit: monthSales - monthExpenses,
     };
   }
 }

@@ -13,7 +13,6 @@ import DashboardPage from "@/pages/dashboard";
 import InventoryPage from "@/pages/inventory";
 import OrdersPage from "@/pages/orders";
 import BooksPage from "@/pages/books";
-import SalesPage from "@/pages/sales";
 
 function Router() {
   return (
@@ -22,7 +21,6 @@ function Router() {
       <Route path="/inventory" component={InventoryPage} />
       <Route path="/orders" component={OrdersPage} />
       <Route path="/books" component={BooksPage} />
-      <Route path="/sales" component={SalesPage} />
       <Route component={NotFound} />
     </Switch>
   );

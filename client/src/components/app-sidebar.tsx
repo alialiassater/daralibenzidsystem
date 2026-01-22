@@ -8,6 +8,7 @@ import {
   LogOut,
   User,
 } from "lucide-react";
+import logoImage from "@assets/image_1769118952560.png";
 import {
   Sidebar,
   SidebarContent,
@@ -60,12 +61,10 @@ export function AppSidebar() {
     <Sidebar side="right" collapsible="icon">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Printer className="h-6 w-6" />
-          </div>
+          <img src={logoImage} alt="دار علي بن زيد" className="h-12 w-12 object-contain" />
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="font-bold text-lg">المطبعة</span>
-            <span className="text-xs text-muted-foreground">نظام الإدارة</span>
+            <span className="font-bold text-lg">دار علي بن زيد</span>
+            <span className="text-xs text-muted-foreground">للطباعة والنشر</span>
           </div>
         </div>
       </SidebarHeader>

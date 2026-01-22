@@ -232,7 +232,7 @@ export default function BooksPage() {
                     name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>السعر (ر.س)</FormLabel>
+                        <FormLabel>السعر (د.ج)</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
                         </FormControl>
@@ -360,7 +360,7 @@ export default function BooksPage() {
                           {remaining}
                         </Badge>
                       </TableCell>
-                      <TableCell>{Number(book.price).toLocaleString()} ر.س</TableCell>
+                      <TableCell>{Number(book.price).toLocaleString()} د.ج</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
@@ -408,7 +408,7 @@ export default function BooksPage() {
                 <p className="font-bold text-lg">{selectedBook.title}</p>
                 <p className="text-muted-foreground">{selectedBook.author}</p>
                 <div className="mt-2 flex gap-4">
-                  <span className="text-sm">السعر: {Number(selectedBook.price).toLocaleString()} ر.س</span>
+                  <span className="text-sm">السعر: {Number(selectedBook.price).toLocaleString()} د.ج</span>
                   <span className="text-sm">المتبقي: {selectedBook.printedCopies - selectedBook.soldCopies}</span>
                 </div>
               </div>
@@ -434,7 +434,7 @@ export default function BooksPage() {
                   <div className="p-3 bg-primary/10 rounded-md text-center">
                     <p className="text-sm text-muted-foreground">الإجمالي</p>
                     <p className="text-2xl font-bold text-primary">
-                      {(Number(selectedBook.price) * (sellForm.watch("quantity") || 0)).toLocaleString()} ر.س
+                      {(Number(selectedBook.price) * (sellForm.watch("quantity") || 0)).toLocaleString()} د.ج
                     </p>
                   </div>
                   <Button type="submit" className="w-full" disabled={sellMutation.isPending}>

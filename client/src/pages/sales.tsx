@@ -184,7 +184,7 @@ export default function SalesPage() {
                   name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>المبلغ (ر.س)</FormLabel>
+                      <FormLabel>المبلغ (د.ج)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} data-testid="input-expense-amount" />
                       </FormControl>
@@ -209,7 +209,7 @@ export default function SalesPage() {
                 <DollarSign className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{Number(stats?.todaySales || 0).toLocaleString()} ر.س</p>
+                <p className="text-2xl font-bold">{Number(stats?.todaySales || 0).toLocaleString()} د.ج</p>
                 <p className="text-sm text-muted-foreground">مبيعات اليوم</p>
               </div>
             </div>
@@ -222,7 +222,7 @@ export default function SalesPage() {
                 <TrendingUp className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{Number(stats?.monthSales || 0).toLocaleString()} ر.س</p>
+                <p className="text-2xl font-bold">{Number(stats?.monthSales || 0).toLocaleString()} د.ج</p>
                 <p className="text-sm text-muted-foreground">مبيعات الشهر</p>
               </div>
             </div>
@@ -235,7 +235,7 @@ export default function SalesPage() {
                 <TrendingDown className="h-6 w-6 text-destructive" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{Number(stats?.monthExpenses || 0).toLocaleString()} ر.س</p>
+                <p className="text-2xl font-bold">{Number(stats?.monthExpenses || 0).toLocaleString()} د.ج</p>
                 <p className="text-sm text-muted-foreground">مصروفات الشهر</p>
               </div>
             </div>
@@ -248,7 +248,7 @@ export default function SalesPage() {
                 <Wallet className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-primary">{Number(stats?.profit || 0).toLocaleString()} ر.س</p>
+                <p className="text-2xl font-bold text-primary">{Number(stats?.profit || 0).toLocaleString()} د.ج</p>
                 <p className="text-sm text-muted-foreground">صافي الربح</p>
               </div>
             </div>
@@ -305,7 +305,7 @@ export default function SalesPage() {
                         </TableCell>
                         <TableCell>{sale.quantity}</TableCell>
                         <TableCell className="text-green-600 font-medium">
-                          +{Number(sale.totalAmount).toLocaleString()} ر.س
+                          +{Number(sale.totalAmount).toLocaleString()} د.ج
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           <div className="flex items-center gap-1">
@@ -353,7 +353,7 @@ export default function SalesPage() {
                           <Badge variant="outline">{getCategoryLabel(expense.category)}</Badge>
                         </TableCell>
                         <TableCell className="text-destructive font-medium">
-                          -{Number(expense.amount).toLocaleString()} ر.س
+                          -{Number(expense.amount).toLocaleString()} د.ج
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           <div className="flex items-center gap-1">

@@ -252,7 +252,7 @@ export default function InventoryPage() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>السعر (ر.س)</FormLabel>
+                      <FormLabel>السعر (د.ج)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} data-testid="input-material-price" />
                       </FormControl>
@@ -341,7 +341,7 @@ export default function InventoryPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{Number(material.price).toLocaleString()} ر.س</TableCell>
+                        <TableCell>{Number(material.price).toLocaleString()} د.ج</TableCell>
                         <TableCell className="font-mono text-sm">{material.barcode}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">

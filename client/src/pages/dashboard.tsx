@@ -128,7 +128,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="مبيعات اليوم"
-          value={`${Number(stats?.todaySales || 0).toLocaleString()} ر.س`}
+          value={`${Number(stats?.todaySales || 0).toLocaleString()} د.ج`}
           icon={DollarSign}
           trend="up"
           description="إجمالي المبيعات اليومية"
@@ -155,7 +155,7 @@ export default function DashboardPage() {
                     borderColor: "hsl(var(--border))",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: number) => [`${value.toLocaleString()} ر.س`, "المبيعات"]}
+                  formatter={(value: number) => [`${value.toLocaleString()} د.ج`, "المبيعات"]}
                 />
                 <Bar dataKey="amount" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -250,19 +250,19 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center p-3 rounded-md bg-muted/50">
                 <span className="text-muted-foreground">مبيعات الشهر</span>
                 <span className="font-bold text-lg">
-                  {Number(stats?.monthSales || 0).toLocaleString()} ر.س
+                  {Number(stats?.monthSales || 0).toLocaleString()} د.ج
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 rounded-md bg-muted/50">
                 <span className="text-muted-foreground">المصروفات</span>
                 <span className="font-bold text-lg text-destructive">
-                  {Number(stats?.totalExpenses || 0).toLocaleString()} ر.س
+                  {Number(stats?.totalExpenses || 0).toLocaleString()} د.ج
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 rounded-md bg-primary/10 border border-primary/20">
                 <span className="font-medium">صافي الربح</span>
                 <span className="font-bold text-xl text-primary">
-                  {Number(stats?.profit || 0).toLocaleString()} ر.س
+                  {Number(stats?.profit || 0).toLocaleString()} د.ج
                 </span>
               </div>
             </div>

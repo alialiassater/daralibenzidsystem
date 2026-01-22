@@ -246,7 +246,7 @@ export default function OrdersPage() {
                     name="cost"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>التكلفة (ر.س)</FormLabel>
+                        <FormLabel>التكلفة (د.ج)</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" {...field} data-testid="input-order-cost" />
                         </FormControl>
@@ -333,7 +333,7 @@ export default function OrdersPage() {
                       <TableCell className="font-medium">{order.customerName}</TableCell>
                       <TableCell>{getPrintTypeLabel(order.printType)}</TableCell>
                       <TableCell>{order.copies}</TableCell>
-                      <TableCell>{Number(order.cost).toLocaleString()} ر.س</TableCell>
+                      <TableCell>{Number(order.cost).toLocaleString()} د.ج</TableCell>
                       <TableCell>
                         <Badge variant={statusConfig[order.status as keyof typeof statusConfig]?.variant || "secondary"}>
                           <StatusIcon className="h-3 w-3 ml-1" />
@@ -412,7 +412,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="p-3 bg-muted rounded-md">
                   <p className="text-sm text-muted-foreground">التكلفة</p>
-                  <p className="font-medium">{Number(selectedOrder.cost).toLocaleString()} ر.س</p>
+                  <p className="font-medium">{Number(selectedOrder.cost).toLocaleString()} د.ج</p>
                 </div>
                 <div className="p-3 bg-muted rounded-md">
                   <p className="text-sm text-muted-foreground">الحالة</p>

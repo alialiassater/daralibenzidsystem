@@ -74,7 +74,7 @@ function LoadingSkeleton() {
         <Skeleton className="h-10 flex-1" />
         <Skeleton className="h-10 w-32" />
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3">
         {[...Array(3)].map((_, i) => (
           <Card key={i}>
             <CardContent className="p-6">
@@ -324,7 +324,7 @@ export default function BooksPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">إدارة الكتب</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">إدارة الكتب</h1>
           <p className="text-muted-foreground mt-1">إدارة كتب دار النشر مع دعم الباركود وصور الأغلفة</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -468,7 +468,7 @@ export default function BooksPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">

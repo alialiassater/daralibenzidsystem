@@ -103,7 +103,7 @@ export default function OrdersPage() {
 
   const addMutation = useMutation({
     mutationFn: async (data: OrderForm) => {
-      return apiRequest<PrintOrder>("POST", "/api/orders", data);
+      return apiRequest("POST", "/api/orders", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
@@ -148,7 +148,7 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">طلبات الطباعة</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">طلبات الطباعة</h1>
           <p className="text-muted-foreground mt-1">إدارة ومتابعة طلبات الطباعة</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -305,16 +305,17 @@ export default function OrdersPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الزبون</TableHead>
-                <TableHead>نوع الطباعة</TableHead>
-                <TableHead>النسخ</TableHead>
-                <TableHead>التكلفة</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>التاريخ</TableHead>
-                <TableHead>الإجراءات</TableHead>
+                <TableHead className="whitespace-nowrap">الزبون</TableHead>
+                <TableHead className="whitespace-nowrap hidden sm:table-cell">نوع الطباعة</TableHead>
+                <TableHead className="whitespace-nowrap hidden md:table-cell">النسخ</TableHead>
+                <TableHead className="whitespace-nowrap">التكلفة</TableHead>
+                <TableHead className="whitespace-nowrap">الحالة</TableHead>
+                <TableHead className="whitespace-nowrap hidden md:table-cell">التاريخ</TableHead>
+                <TableHead className="whitespace-nowrap">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -330,9 +331,9 @@ export default function OrdersPage() {
                   const StatusIcon = statusConfig[order.status as keyof typeof statusConfig]?.icon || Clock;
                   return (
                     <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                      <TableCell className="font-medium">{order.customerName}</TableCell>
-                      <TableCell>{getPrintTypeLabel(order.printType)}</TableCell>
-                      <TableCell>{order.copies}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{order.customerName}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{getPrintTypeLabel(order.printType)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{order.copies}</TableCell>
                       <TableCell>{Number(order.cost).toLocaleString()} د.ج</TableCell>
                       <TableCell>
                         <Badge variant={statusConfig[order.status as keyof typeof statusConfig]?.variant || "secondary"}>
@@ -340,13 +341,14 @@ export default function OrdersPage() {
                           {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
                         {order.createdAt ? new Date(order.createdAt).toLocaleDateString("ar-SA") : "-"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 sm:gap-2">
                           <Button
-                            size="sm"
+                            size="icon"
+                            className="h-9 w-9"
                             variant="ghost"
                             onClick={() => {
                               setSelectedOrder(order);
@@ -383,6 +385,7 @@ export default function OrdersPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

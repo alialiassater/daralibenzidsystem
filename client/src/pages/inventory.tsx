@@ -190,7 +190,7 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">إدارة المخزون</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">إدارة المخزون</h1>
           <p className="text-muted-foreground mt-1">إدارة المواد والمخزون مع دعم الباركود</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -323,15 +323,16 @@ export default function InventoryPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>المادة</TableHead>
-                    <TableHead>النوع</TableHead>
-                    <TableHead>الكمية</TableHead>
-                    <TableHead>السعر</TableHead>
-                    <TableHead>الباركود</TableHead>
-                    <TableHead>الإجراءات</TableHead>
+                    <TableHead className="whitespace-nowrap">المادة</TableHead>
+                    <TableHead className="whitespace-nowrap">النوع</TableHead>
+                    <TableHead className="whitespace-nowrap">الكمية</TableHead>
+                    <TableHead className="whitespace-nowrap hidden sm:table-cell">السعر</TableHead>
+                    <TableHead className="whitespace-nowrap hidden md:table-cell">الباركود</TableHead>
+                    <TableHead className="whitespace-nowrap">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -345,7 +346,7 @@ export default function InventoryPage() {
                   ) : (
                     filteredMaterials?.map((material) => (
                       <TableRow key={material.id} data-testid={`row-material-${material.id}`}>
-                        <TableCell className="font-medium">{material.name}</TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">{material.name}</TableCell>
                         <TableCell>
                           <Badge variant="secondary">{getTypeLabel(material.type)}</Badge>
                         </TableCell>
@@ -365,25 +366,27 @@ export default function InventoryPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{Number(material.price).toLocaleString()} د.ج</TableCell>
-                        <TableCell className="font-mono text-sm">{material.barcode}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{Number(material.price).toLocaleString()} د.ج</TableCell>
+                        <TableCell className="font-mono text-sm hidden md:table-cell">{material.barcode}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 sm:gap-2">
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
+                              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-3"
                               onClick={() => {
                                 setSelectedMaterial(material);
                                 setIsMovementOpen(true);
                               }}
                               data-testid={`button-movement-${material.id}`}
                             >
-                              <ArrowUpCircle className="h-4 w-4 ml-1" />
-                              حركة
+                              <ArrowUpCircle className="h-4 w-4 sm:ml-1" />
+                              <span className="hidden sm:inline">حركة</span>
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
+                              className="h-9 w-9"
                               onClick={() => {
                                 setSelectedMaterial(material);
                                 setIsBarcodeOpen(true);
@@ -394,9 +397,9 @@ export default function InventoryPage() {
                             </Button>
                             {canDelete && (
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="ghost"
-                                className="text-destructive hover:text-destructive"
+                                className="h-9 w-9 text-destructive hover:text-destructive"
                                 onClick={() => {
                                   setSelectedMaterial(material);
                                   setIsDeleteOpen(true);
@@ -413,6 +416,7 @@ export default function InventoryPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -423,14 +427,15 @@ export default function InventoryPage() {
               <CardTitle>سجل حركات المخزون</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>المادة</TableHead>
-                    <TableHead>النوع</TableHead>
-                    <TableHead>الكمية</TableHead>
-                    <TableHead>الملاحظات</TableHead>
-                    <TableHead>التاريخ</TableHead>
+                    <TableHead className="whitespace-nowrap">المادة</TableHead>
+                    <TableHead className="whitespace-nowrap">النوع</TableHead>
+                    <TableHead className="whitespace-nowrap">الكمية</TableHead>
+                    <TableHead className="whitespace-nowrap hidden sm:table-cell">الملاحظات</TableHead>
+                    <TableHead className="whitespace-nowrap hidden sm:table-cell">التاريخ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -444,7 +449,7 @@ export default function InventoryPage() {
                   ) : (
                     movements?.map((movement) => (
                       <TableRow key={movement.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium whitespace-nowrap">
                           {movement.material?.name || "غير معروف"}
                         </TableCell>
                         <TableCell>
@@ -457,10 +462,10 @@ export default function InventoryPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>{movement.quantity}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-muted-foreground hidden sm:table-cell">
                           {movement.notes || "-"}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-muted-foreground hidden sm:table-cell">
                           {movement.createdAt
                             ? new Date(movement.createdAt).toLocaleDateString("ar-SA")
                             : "-"}
@@ -470,6 +475,7 @@ export default function InventoryPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

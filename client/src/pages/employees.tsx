@@ -179,7 +179,7 @@ export default function EmployeesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">
             إدارة الموظفين
           </h1>
           <p className="text-muted-foreground mt-1">إضافة وتعديل وتعطيل الموظفين</p>
@@ -275,7 +275,7 @@ export default function EmployeesPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">إجمالي الموظفين</CardTitle>
@@ -316,14 +316,15 @@ export default function EmployeesPage() {
           <CardTitle>قائمة الموظفين</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الاسم</TableHead>
-                <TableHead>اسم المستخدم</TableHead>
-                <TableHead>الرتبة</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>الإجراءات</TableHead>
+                <TableHead className="whitespace-nowrap">الاسم</TableHead>
+                <TableHead className="whitespace-nowrap hidden sm:table-cell">اسم المستخدم</TableHead>
+                <TableHead className="whitespace-nowrap">الرتبة</TableHead>
+                <TableHead className="whitespace-nowrap">الحالة</TableHead>
+                <TableHead className="whitespace-nowrap">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -337,8 +338,8 @@ export default function EmployeesPage() {
               ) : (
                 employees?.map((employee) => (
                   <TableRow key={employee.id} data-testid={`row-employee-${employee.id}`}>
-                    <TableCell className="font-medium">{employee.fullName}</TableCell>
-                    <TableCell className="text-muted-foreground">{employee.username}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{employee.fullName}</TableCell>
+                    <TableCell className="text-muted-foreground hidden sm:table-cell">{employee.username}</TableCell>
                     <TableCell>
                       <Badge variant={roleColors[employee.role] as any}>
                         {roleLabels[employee.role] || employee.role}
@@ -384,6 +385,7 @@ export default function EmployeesPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

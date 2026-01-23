@@ -29,12 +29,12 @@ function StatCard({ title, value, icon: Icon, description }: {
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 p-3 sm:p-6 sm:pb-2">
+        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+      <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+        <div className="text-xl sm:text-2xl font-bold">{value}</div>
         {description && (
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
@@ -86,11 +86,11 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">لوحة التحكم</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">لوحة التحكم</h1>
         <p className="text-muted-foreground mt-1">نظرة عامة على المطبعة ودار النشر</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <StatCard
           title="إجمالي المخزون"
           value={stats?.totalMaterials || 0}
@@ -123,7 +123,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

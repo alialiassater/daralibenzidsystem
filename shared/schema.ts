@@ -195,7 +195,7 @@ export const insertBookSchema = createInsertSchema(books).omit({
   isDeleted: true,
 }).extend({
   isbn: z.string().transform(val => val.replace(/[-\s]/g, "")).pipe(z.string().length(13, "رقم ISBN يجب أن يتكون من 13 رقم")),
-  price: priceTransform.optional().default("0"),
+  price: priceTransform.default("0"),
   totalQuantity: z.number().min(0).default(0),
   readyQuantity: z.number().min(0).default(0),
   printingQuantity: z.number().min(0).default(0),

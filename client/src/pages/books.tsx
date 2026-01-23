@@ -43,6 +43,7 @@ const bookSchema = z.object({
   totalQuantity: z.coerce.number().min(0, "الكمية الإجمالية مطلوبة"),
   readyQuantity: z.coerce.number().min(0, "الكمية الجاهزة مطلوبة"),
   printingQuantity: z.coerce.number().min(0, "الكمية قيد الطباعة مطلوبة"),
+  price: z.coerce.number().min(0, "السعر يجب أن يكون 0 أو أكثر"),
 });
 
 type BookForm = z.infer<typeof bookSchema>;
@@ -69,6 +70,7 @@ const editBookSchema = z.object({
   totalQuantity: z.coerce.number().min(0),
   readyQuantity: z.coerce.number().min(0),
   printingQuantity: z.coerce.number().min(0),
+  price: z.coerce.number().min(0, "السعر يجب أن يكون 0 أو أكثر"),
 });
 
 type EditBookForm = z.infer<typeof editBookSchema>;
@@ -207,6 +209,9 @@ function BookCard({ book, onViewBarcode, onEditQuantity, onEditBook, onDeleteBoo
           <Badge className={statusInfo.className} variant="secondary">
             {statusInfo.label}
           </Badge>
+          <Badge variant="outline" className="bg-primary/5 text-primary font-bold border-primary/20">
+            {Number(book.price || 0).toLocaleString()} د.ج
+          </Badge>
         </div>
         <div className="grid grid-cols-3 gap-1 text-xs text-center">
           <div className="bg-muted rounded p-1">
@@ -291,11 +296,6 @@ export default function BooksPage() {
       readyQuantity: 0,
       printingQuantity: 0,
       price: 0,
-      pageCount: 0,
-      paperPricePerSheet: 0,
-      inkCartridgePrice: 3500,
-      pagesPerCartridge: 1000,
-      additionalCosts: 0,
     },
   });
 
@@ -319,11 +319,6 @@ export default function BooksPage() {
       readyQuantity: 0,
       printingQuantity: 0,
       price: 0,
-      pageCount: 0,
-      paperPricePerSheet: 0,
-      inkCartridgePrice: 3500,
-      pagesPerCartridge: 1000,
-      additionalCosts: 0,
     },
   });
 
@@ -437,6 +432,7 @@ export default function BooksPage() {
       totalQuantity: book.totalQuantity || 0,
       readyQuantity: book.readyQuantity || 0,
       printingQuantity: book.printingQuantity || 0,
+      price: Number(book.price || 0),
     });
     setIsEditOpen(true);
   };
@@ -623,19 +619,36 @@ export default function BooksPage() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={addForm.control}
-                      name="printingQuantity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>قيد الطباعة</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} data-testid="input-book-printing" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={addForm.control}
+                        name="printingQuantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>قيد الطباعة</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} data-testid="input-book-printing" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {(isAdmin || user?.role === 'supervisor') && (
+                        <FormField
+                          control={addForm.control}
+                          name="price"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>السعر (د.ج)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
+                    </div>
                   </div>
                   <Button
                     type="submit"
@@ -936,19 +949,36 @@ export default function BooksPage() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={editForm.control}
-                    name="printingQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>قيد الطباعة</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} data-testid="input-edit-book-printing" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="printingQuantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>قيد الطباعة</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} data-testid="input-edit-book-printing" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {(isAdmin || user?.role === 'supervisor') && (
+                      <FormField
+                        control={editForm.control}
+                        name="price"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>السعر (د.ج)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" {...field} data-testid="input-edit-book-price" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+                  </div>
                 </div>
                 <Button
                   type="submit"

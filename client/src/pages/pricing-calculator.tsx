@@ -92,7 +92,6 @@ export default function PricingCalculatorPage() {
         paperPrice,
         multiplier: paperSize === "custom" ? customMultiplier : PAPER_SIZES.find(s => s.value === paperSize)?.multiplier,
         inkPrice,
-        pagesPerInk,
         extraCosts,
         inkCartridges: results.inkCartridges,
         paperCost: results.paperCost,
@@ -232,7 +231,10 @@ export default function PricingCalculatorPage() {
                   <Droplets className="h-4 w-4 text-blue-500" />
                   <span className="text-sm font-medium">علب الحبر:</span>
                 </div>
-                <span className="font-bold text-lg">{results.inkCartridges} علبة</span>
+                <div className="text-left">
+                  <span className="font-bold text-lg">{results.inkCartridges} علبة</span>
+                  <p className="text-[10px] text-muted-foreground">تكلفة ثابتة للعمل بالكامل</p>
+                </div>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm">

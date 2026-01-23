@@ -23,7 +23,9 @@ export function BarcodeGenerator({
   useEffect(() => {
     if (svgRef.current && value) {
       try {
-        JsBarcode(svgRef.current, value, {
+        // التأكد من أن القيمة لا تحتوي على أي نصوص إضافية
+        const barcodeValue = value.replace(/^(BOOK|MAT)/, "");
+        JsBarcode(svgRef.current, barcodeValue, {
           format: "CODE128",
           width,
           height,

@@ -477,8 +477,8 @@ export default function BooksPage() {
   };
 
   const handleBarcodeScan = (barcode: string) => {
-    // إزالة أي بادئات قد تكون موجودة في الباركود الممسوح لضمان التطابق مع ISBN
-    const cleanBarcode = barcode.replace(/^(BOOK|MAT)/, "");
+    // إزالة أي بادئات أو فواصل قد تكون موجودة في الباركود الممسوح لضمان التطابق مع ISBN
+    const cleanBarcode = barcode.replace(/^(BOOK|MAT)/, "").replace(/[-\s]/g, "");
     const book = books?.find(b => b.isbn === cleanBarcode);
     if (book) {
       setSearchQuery(cleanBarcode);
@@ -555,71 +555,78 @@ export default function BooksPage() {
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={addForm.control}
-                      name="isbn"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>رقم ISBN (سيستخدم كباركود)</FormLabel>
-                          <div className="flex gap-2">
-                            <FormControl>
-                              <Input {...field} data-testid="input-book-isbn" placeholder="مثلاً: 9789947000000" />
-                            </FormControl>
-                            <BarcodeScanner 
-                              onScan={async (isbn) => {
-                                const cleanIsbn = isbn.replace(/^(BOOK|MAT)/, "");
-                                field.onChange(cleanIsbn);
-                                toast({ title: "جاري البحث عن بيانات الكتاب..." });
-                                try {
-                                  const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`);
-                                  const data = await response.json();
-                                  const bookData = data[`ISBN:${cleanIsbn}`];
-                                  if (bookData) {
-                                    addForm.setValue("title", bookData.title || "");
-                                    if (bookData.authors && bookData.authors.length > 0) {
-                                      addForm.setValue("author", bookData.authors[0].name || "");
-                                    }
-                                    toast({ title: "تم جلب بيانات الكتاب بنجاح" });
-                                  } else {
-                                    toast({ title: "لم يتم العثور على بيانات لهذا الرقم", variant: "destructive" });
-                                  }
-                                } catch (error) {
-                                  toast({ title: "حدث خطأ أثناء الاتصال بخدمة البيانات", variant: "destructive" });
-                                }
-                              }} 
-                              placeholder="مسح ISBN"
+                  <FormField
+                    control={addForm.control}
+                    name="isbn"
+                    render={({ field }) => (
+                      <FormItem className="col-span-full">
+                        <FormLabel>رقم ISBN (13 رقم، سيستخدم كباركود)</FormLabel>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              data-testid="input-book-isbn" 
+                              placeholder="مثلاً: 9789947000000" 
+                              className="text-center font-mono text-lg tracking-widest"
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[-\s]/g, "");
+                                field.onChange(val);
+                              }}
                             />
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addForm.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>الصنف</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-book-category">
-                                <SelectValue placeholder="اختر الصنف" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {BOOK_CATEGORIES.map((cat) => (
-                                <SelectItem key={cat.value} value={cat.value}>
-                                  {cat.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          </FormControl>
+                          <BarcodeScanner 
+                            onScan={async (isbn) => {
+                              const cleanIsbn = isbn.replace(/^(BOOK|MAT)/, "").replace(/[-\s]/g, "");
+                              field.onChange(cleanIsbn);
+                              toast({ title: "جاري البحث عن بيانات الكتاب..." });
+                              try {
+                                const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`);
+                                const data = await response.json();
+                                const bookData = data[`ISBN:${cleanIsbn}`];
+                                if (bookData) {
+                                  addForm.setValue("title", bookData.title || "");
+                                  if (bookData.authors && bookData.authors.length > 0) {
+                                    addForm.setValue("author", bookData.authors[0].name || "");
+                                  }
+                                  toast({ title: "تم جلب بيانات الكتاب بنجاح" });
+                                } else {
+                                  toast({ title: "لم يتم العثور على بيانات لهذا الرقم", variant: "destructive" });
+                                }
+                              } catch (error) {
+                                toast({ title: "حدث خطأ أثناء الاتصال بخدمة البيانات", variant: "destructive" });
+                              }
+                            }} 
+                            placeholder="مسح ISBN"
+                          />
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addForm.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>الصنف</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-book-category">
+                              <SelectValue placeholder="اختر الصنف" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BOOK_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={addForm.control}
@@ -1020,45 +1027,51 @@ export default function BooksPage() {
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="isbn"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>رقم ISBN</FormLabel>
+                <FormField
+                  control={editForm.control}
+                  name="isbn"
+                  render={({ field }) => (
+                    <FormItem className="col-span-full">
+                      <FormLabel>رقم ISBN</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-edit-book-isbn" 
+                          className="text-center font-mono text-lg tracking-widest"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[-\s]/g, "");
+                            field.onChange(val);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>الصنف</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <Input {...field} data-testid="input-edit-book-isbn" />
+                          <SelectTrigger data-testid="select-edit-book-category">
+                            <SelectValue placeholder="اختر الصنف" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={editForm.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>الصنف</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-edit-book-category">
-                              <SelectValue placeholder="اختر الصنف" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {BOOK_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat.value} value={cat.value}>
-                                {cat.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        <SelectContent>
+                          {BOOK_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>
+                              {cat.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={editForm.control}

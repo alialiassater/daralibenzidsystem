@@ -244,16 +244,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBook(insertBook: InsertBook): Promise<Book> {
-    if (!insertBook.isbn) {
-      throw new Error("رقم ISBN مطلوب لتوليد الباركود");
+    const cleanIsbn = insertBook.isbn.replace(/[-\s]/g, "");
+    if (!cleanIsbn || cleanIsbn.length !== 13) {
+      throw new Error("رقم ISBN غير صالح. يجب أن يتكون من 13 رقم.");
     }
-    const barcode = insertBook.isbn; // استخدام ISBN كباركود حصرياً
+    const barcode = cleanIsbn; // استخدام ISBN كباركود حصرياً
     const status = calculateBookStatus(
       insertBook.readyQuantity || 0,
       insertBook.printingQuantity || 0
     );
     const [book] = await db.insert(books).values({ 
       ...insertBook, 
+      isbn: cleanIsbn,
       barcode,
       status 
     }).returning();
@@ -287,9 +289,14 @@ export class DatabaseStorage implements IStorage {
   async updateBook(id: string, updates: UpdateBook): Promise<Book> {
     const updateData: Record<string, any> = { ...updates };
     
-    // إذا تم تحديث ISBN، نحدث الباركود أيضاً ليتطابق معه
+    // تنظيف وتحديث ISBN والباركود
     if (updates.isbn) {
-      updateData.barcode = updates.isbn;
+      const cleanIsbn = updates.isbn.replace(/[-\s]/g, "");
+      if (cleanIsbn.length !== 13) {
+        throw new Error("رقم ISBN يجب أن يتكون من 13 رقم");
+      }
+      updateData.isbn = cleanIsbn;
+      updateData.barcode = cleanIsbn;
     }
 
     // حساب الحالة تلقائياً إذا تم تغيير الكميات

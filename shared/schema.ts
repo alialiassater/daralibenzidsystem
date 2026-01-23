@@ -194,6 +194,7 @@ export const insertBookSchema = createInsertSchema(books).omit({
   status: true, // يتم حسابها تلقائياً
   isDeleted: true,
 }).extend({
+  isbn: z.string().transform(val => val.replace(/[-\s]/g, "")).pipe(z.string().length(13, "رقم ISBN يجب أن يتكون من 13 رقم")),
   price: priceTransform,
   totalQuantity: z.number().min(0).default(0),
   readyQuantity: z.number().min(0).default(0),
@@ -207,7 +208,7 @@ export const insertBookSchema = createInsertSchema(books).omit({
 export const updateBookSchema = z.object({
   title: z.string().min(1).optional(),
   author: z.string().min(1).optional(),
-  isbn: z.string().min(1).optional(),
+  isbn: z.string().transform(val => val.replace(/[-\s]/g, "")).pipe(z.string().length(13, "رقم ISBN يجب أن يتكون من 13 رقم")).optional(),
   category: z.string().optional(),
   totalQuantity: z.number().min(0).optional(),
   readyQuantity: z.number().min(0).optional(),

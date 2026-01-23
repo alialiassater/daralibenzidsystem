@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "/logo.png";
+import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { User } from "@shared/schema";
 

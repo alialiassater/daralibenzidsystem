@@ -792,13 +792,17 @@ export async function registerRoutes(
       const validatedData = updateBookSchema.parse(updateData);
       const updatedBook = await storage.updateBook(bookId, validatedData);
       
-      // تسجيل النشاط مع تفاصيل التغييرات
+      // تسجيل النشاط إذا كان هناك تغيير في حقول التسعير
       if (currentUser) {
         const changes: string[] = [];
         if (updateData.title && updateData.title !== book.title) changes.push(`الاسم: ${updateData.title}`);
         if (updateData.author && updateData.author !== book.author) changes.push(`المؤلف: ${updateData.author}`);
         if (updateData.isbn && updateData.isbn !== book.isbn) changes.push(`ISBN: ${updateData.isbn}`);
         if (updateData.category && updateData.category !== book.category) changes.push(`الصنف: ${updateData.category}`);
+        if (updateData.paperPricePerSheet !== undefined) changes.push(`سعر الورق (${updateData.paperPricePerSheet})`);
+        if (updateData.inkCartridgePrice !== undefined) changes.push(`سعر الحبر (${updateData.inkCartridgePrice})`);
+        if (updateData.pageCount !== undefined) changes.push(`عدد الصفحات (${updateData.pageCount})`);
+        if (updateData.totalQuantity !== undefined) changes.push(`عدد النسخ (${updateData.totalQuantity})`);
         
         await logActivity({
           userId: currentUser.id,

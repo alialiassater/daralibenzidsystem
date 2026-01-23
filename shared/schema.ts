@@ -74,6 +74,12 @@ export const books = pgTable("books", {
   printingQuantity: integer("printing_quantity").notNull().default(0), // الكمية قيد الطباعة
   status: text("status").notNull().default("unavailable"), // printing, ready, unavailable
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  // حقول حساب التسعير
+  pageCount: integer("page_count").notNull().default(0),
+  paperPricePerSheet: decimal("paper_price_per_sheet", { precision: 10, scale: 2 }).notNull().default("0"),
+  inkCartridgePrice: decimal("ink_cartridge_price", { precision: 10, scale: 2 }).notNull().default("3500"),
+  pagesPerCartridge: integer("pages_per_cartridge").notNull().default(1000),
+  additionalCosts: decimal("additional_costs", { precision: 10, scale: 2 }).notNull().default("0"),
   isDeleted: boolean("is_deleted").notNull().default(false), // حذف منطقي
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -192,6 +198,9 @@ export const insertBookSchema = createInsertSchema(books).omit({
   totalQuantity: z.number().min(0).default(0),
   readyQuantity: z.number().min(0).default(0),
   printingQuantity: z.number().min(0).default(0),
+  paperPricePerSheet: priceTransform.optional(),
+  inkCartridgePrice: priceTransform.optional(),
+  additionalCosts: priceTransform.optional(),
 });
 
 // مخطط تحديث الكتاب - يتضمن جميع الحقول القابلة للتعديل
@@ -204,6 +213,11 @@ export const updateBookSchema = z.object({
   readyQuantity: z.number().min(0).optional(),
   printingQuantity: z.number().min(0).optional(),
   price: priceTransform.optional(),
+  pageCount: z.number().min(0).optional(),
+  paperPricePerSheet: priceTransform.optional(),
+  inkCartridgePrice: priceTransform.optional(),
+  pagesPerCartridge: z.number().min(1).optional(),
+  additionalCosts: priceTransform.optional(),
 });
 
 export type UpdateBook = z.infer<typeof updateBookSchema>;

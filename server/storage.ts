@@ -54,6 +54,7 @@ export interface IStorage {
   updateBook(id: string, updates: UpdateBook): Promise<Book>;
   updateBookCover(id: string, coverPath: string): Promise<void>;
   updateBookQuantities(id: string, totalQuantity: number, readyQuantity: number, printingQuantity: number): Promise<Book>;
+  updateOrder(id: string, updates: Partial<InsertPrintOrder>): Promise<PrintOrder>;
   softDeleteBook(id: string): Promise<void>;
 
   getExpenses(): Promise<Expense[]>;
@@ -202,6 +203,15 @@ export class DatabaseStorage implements IStorage {
 
   async updateOrderStatus(id: string, status: string): Promise<void> {
     await db.update(printOrders).set({ status }).where(eq(printOrders.id, id));
+  }
+
+  async updateOrder(id: string, updates: Partial<InsertPrintOrder>): Promise<PrintOrder> {
+    const [order] = await db.update(printOrders)
+      .set(updates)
+      .where(eq(printOrders.id, id))
+      .returning();
+    if (!order) throw new Error("الطلب غير موجود");
+    return order;
   }
 
   // حذف منطقي للطلب

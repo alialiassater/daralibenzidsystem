@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Printer, Search, Loader2, Eye, Clock, CheckCircle, XCircle, PlayCircle } from "lucide-react";
+import { Plus, Printer, Search, Loader2, Eye, Clock, CheckCircle, XCircle, PlayCircle, Pencil, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PrintOrder } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +26,7 @@ const orderSchema = z.object({
   copies: z.coerce.number().min(1, "عدد النسخ مطلوب"),
   paperType: z.string().min(1, "نوع الورق مطلوب"),
   cost: z.coerce.number().min(0, "التكلفة مطلوبة"),
+  status: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -82,10 +84,12 @@ export default function OrdersPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PrintOrder | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const { data: orders, isLoading } = useQuery<PrintOrder[]>({
     queryKey: ["/api/orders"],
@@ -99,6 +103,19 @@ export default function OrdersPage() {
       copies: 1,
       paperType: "",
       cost: 0,
+      notes: "",
+    },
+  });
+
+  const editForm = useForm<OrderForm>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      customerName: "",
+      printType: "",
+      copies: 1,
+      paperType: "",
+      cost: 0,
+      status: "pending",
       notes: "",
     },
   });
@@ -119,6 +136,35 @@ export default function OrdersPage() {
     },
   });
 
+  const updateOrderMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: OrderForm }) => {
+      return apiRequest("PATCH", `/api/orders/${id}`, { ...data, currentUser: user });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsEditOpen(false);
+      toast({ title: "تم تحديث الطلب بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ أثناء التحديث", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/orders/${id}`, { currentUser: user });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({ title: "تم حذف الطلب بنجاح" });
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message || "حدث خطأ أثناء الحذف", variant: "destructive" });
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       return apiRequest("PATCH", `/api/orders/${id}/status`, { status, currentUser: user });
@@ -132,6 +178,25 @@ export default function OrdersPage() {
       toast({ title: "حدث خطأ أثناء التحديث", variant: "destructive" });
     },
   });
+
+  const canEdit = (order: PrintOrder) => {
+    if (isAdmin) return true;
+    return order.status !== 'completed';
+  };
+
+  const handleEditClick = (order: PrintOrder) => {
+    setSelectedOrder(order);
+    editForm.reset({
+      customerName: order.customerName,
+      printType: order.printType,
+      copies: order.copies,
+      paperType: order.paperType,
+      cost: Number(order.cost),
+      status: order.status,
+      notes: order.notes || "",
+    });
+    setIsEditOpen(true);
+  };
 
   const filteredOrders = orders?.filter((order) => {
     const matchesSearch = order.customerName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -360,6 +425,46 @@ export default function OrdersPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          {canEdit(order) && (
+                            <Button
+                              size="icon"
+                              className="h-9 w-9"
+                              variant="ghost"
+                              onClick={() => handleEditClick(order)}
+                              data-testid={`button-edit-order-${order.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {(isAdmin || (order.status !== 'completed')) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  className="h-9 w-9 text-destructive"
+                                  variant="ghost"
+                                  disabled={!isAdmin && user?.role !== 'admin'}
+                                  data-testid={`button-delete-order-${order.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>هل أنت متأكد من حذف الطلب؟</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    سيتم حذف الطلب "{order.customerName}" نهائياً. هذا الإجراء لا يمكن التراجع عنه.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="gap-2">
+                                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteMutation.mutate(order.id)} className="bg-destructive text-destructive-foreground">
+                                    حذف
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                           {order.status === "pending" && (
                             <Button
                               size="sm"
@@ -390,6 +495,148 @@ export default function OrdersPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>تعديل طلب الطباعة</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => selectedOrder && updateOrderMutation.mutate({ id: selectedOrder.id, data }))} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="customerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>اسم الزبون</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-order-customer" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="printType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>نوع الطباعة</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-order-printtype">
+                            <SelectValue placeholder="اختر" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {printTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>حالة الطلب</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-order-status">
+                            <SelectValue placeholder="اختر الحالة" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="pending">قيد الانتظار</SelectItem>
+                          <SelectItem value="in_progress">جاري التنفيذ</SelectItem>
+                          <SelectItem value="completed">مكتمل</SelectItem>
+                          <SelectItem value="cancelled">ملغي</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="paperType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>نوع الورق</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-order-papertype">
+                            <SelectValue placeholder="اختر" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {paperTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="copies"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>عدد النسخ</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} data-testid="input-edit-order-copies" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={editForm.control}
+                name="cost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>التكلفة (د.ج)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} data-testid="input-edit-order-cost" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ملاحظات (اختياري)</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} data-testid="input-edit-order-notes" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={updateOrderMutation.isPending} data-testid="button-update-order">
+                {updateOrderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "تحديث الطلب"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
         <DialogContent>

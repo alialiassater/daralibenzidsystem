@@ -524,6 +524,7 @@ export async function registerRoutes(
     }
   });
 
+  // تحديث حالة الطلب
   app.patch("/api/orders/:id/status", async (req, res) => {
     try {
       const { status, currentUser } = req.body;
@@ -558,39 +559,72 @@ export async function registerRoutes(
     }
   });
 
-  // حذف طلب (Soft Delete - للمدير فقط)
+  // تحديث بيانات الطلب
+  app.patch("/api/orders/:id", async (req, res) => {
+    try {
+      const id = req.params.id;
+      const { currentUser, ...updates } = req.body;
+      
+      const order = await storage.getOrder(id);
+      if (!order) return res.status(404).json({ message: "الطلب غير موجود" });
+
+      // التحقق من الصلاحيات
+      if (currentUser?.role !== 'admin' && order.status === 'completed') {
+        return res.status(403).json({ message: "لا يمكن تعديل الطلبات المكتملة إلا بواسطة المدير" });
+      }
+
+      const updatedOrder = await storage.updateOrder(id, updates);
+
+      // تسجيل النشاط
+      await logActivity({
+        userId: currentUser?.id || "unknown",
+        userName: currentUser?.fullName || "unknown",
+        userRole: currentUser?.role || "employee",
+        action: "update",
+        entityType: "order",
+        entityId: id,
+        details: `تعديل طلب الطباعة للزبون: ${order.customerName}`,
+        ipAddress: getClientIp(req),
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // حذف طلب (Soft Delete - للمدير فقط أو الطلبات غير المكتملة)
   app.delete("/api/orders/:id", async (req, res) => {
     try {
       const orderId = req.params.id;
       const { currentUser } = req.body;
-      const userRole = req.headers['x-user-role'];
-      
-      // التحقق من صلاحية المدير
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
-      }
       
       const order = await storage.getOrder(orderId);
       if (!order) {
         return res.status(404).json({ message: "الطلب غير موجود" });
       }
+
+      // التحقق من صلاحية المدير للحذف
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
+      }
+
+      // إذا كان الطلب مكتملاً، يتطلب صلاحية المدير (تم التحقق منها أعلاه بالفعل كونه أدمن)
       
       await storage.softDeleteOrder(orderId);
       
       // تسجيل النشاط
-      if (currentUser) {
-        await logActivity({
-          userId: currentUser.id,
-          userName: currentUser.fullName,
-          userRole: currentUser.role,
-          action: 'delete',
-          entityType: 'order',
-          entityId: orderId,
-          entityName: order.customerName,
-          details: `حذف طلب: ${order.customerName} - ${order.printType}`,
-          ipAddress: getClientIp(req),
-        });
-      }
+      await logActivity({
+        userId: currentUser.id,
+        userName: currentUser.fullName,
+        userRole: currentUser.role,
+        action: 'delete',
+        entityType: 'order',
+        entityId: orderId,
+        entityName: order.customerName,
+        details: `حذف طلب: ${order.customerName} - ${order.printType}`,
+        ipAddress: getClientIp(req),
+      });
       
       res.json({ success: true, message: "تم حذف الطلب بنجاح" });
     } catch (error) {

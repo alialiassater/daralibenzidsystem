@@ -26,6 +26,7 @@ export default function PricingCalculatorPage() {
 
   const [pageCount, setPageCount] = useState<number>(0);
   const [copies, setCopies] = useState<number>(0);
+  const [bookTitle, setBookTitle] = useState<string>("");
   const [paperSize, setPaperSize] = useState<string>("A4");
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -111,6 +112,7 @@ export default function PricingCalculatorPage() {
 
     saveMutation.mutate({
       userId: user?.id,
+      bookTitle: bookTitle || "كتاب بدون عنوان",
       totalPrice: results.finalTotal.toString(),
       paperSize,
       pageCount,
@@ -147,6 +149,16 @@ export default function PricingCalculatorPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-sm">اسم الكتاب</Label>
+              <Input 
+                value={bookTitle} 
+                onChange={(e) => setBookTitle(e.target.value)}
+                placeholder="أدخل اسم الكتاب أو العمل"
+                className="h-10"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label className="text-sm">حجم الورق</Label>
               <Select value={paperSize} onValueChange={setPaperSize}>
@@ -314,24 +326,26 @@ export default function PricingCalculatorPage() {
             <table className="w-full text-right text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="pb-3 pr-2">التاريخ</th>
+                  <th className="pb-3 pr-2">اسم الكتاب</th>
                   <th className="pb-3 pr-2">الحجم</th>
                   <th className="pb-3 pr-2">الصفحات</th>
                   <th className="pb-3 pr-2">النسخ</th>
                   <th className="pb-3 pr-2 text-left">السعر</th>
+                  <th className="pb-3 pr-2">التاريخ</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {savedCalcs?.map((calc) => (
                   <tr key={calc.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="py-3 pr-2">
-                      {calc.createdAt ? format(new Date(calc.createdAt), "PPP p", { locale: ar }) : "-"}
-                    </td>
-                    <td className="py-3 pr-2 font-medium">{calc.paperSize}</td>
+                    <td className="py-3 pr-2 font-medium">{calc.bookTitle}</td>
+                    <td className="py-3 pr-2">{calc.paperSize}</td>
                     <td className="py-3 pr-2">{calc.pageCount}</td>
                     <td className="py-3 pr-2">{calc.copyCount}</td>
                     <td className="py-3 pr-2 text-left font-bold text-primary">
                       {Number(calc.totalPrice).toLocaleString()} دج
+                    </td>
+                    <td className="py-3 pr-2 text-xs text-muted-foreground">
+                      {calc.createdAt ? format(new Date(calc.createdAt), "PPP p", { locale: ar }) : "-"}
                     </td>
                   </tr>
                 ))}

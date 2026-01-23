@@ -112,6 +112,7 @@ export const activityLogs = pgTable("activity_logs", {
 export const savedCalculations = pgTable("saved_calculations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
+  bookTitle: text("book_title").notNull().default("كتاب بدون عنوان"),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   paperSize: text("paper_size").notNull(),
   pageCount: integer("page_count").notNull(),

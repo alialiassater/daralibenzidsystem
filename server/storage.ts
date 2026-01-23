@@ -41,6 +41,7 @@ export interface IStorage {
   getMaterial(id: string): Promise<Material | undefined>;
   getMaterialByBarcode(barcode: string): Promise<Material | undefined>;
   createMaterial(material: InsertMaterial): Promise<Material>;
+  updateMaterial(id: string, updates: { price?: string; paperSize?: string | null; paperVariant?: string | null }): Promise<Material>;
   updateMaterialQuantity(id: string, quantity: number): Promise<void>;
   softDeleteMaterial(id: string): Promise<void>;
   hasMaterialMovements(id: string): Promise<boolean>;
@@ -134,6 +135,17 @@ export class DatabaseStorage implements IStorage {
   async createMaterial(insertMaterial: InsertMaterial): Promise<Material> {
     const barcode = randomUUID().split('-')[0].toUpperCase();
     const [material] = await db.insert(materials).values({ ...insertMaterial, barcode }).returning();
+    return material;
+  }
+
+  // تحديث المادة (السعر، الحجم، النوع)
+  async updateMaterial(id: string, updates: { price?: string; paperSize?: string | null; paperVariant?: string | null }): Promise<Material> {
+    const updateData: any = {};
+    if (updates.price !== undefined) updateData.price = updates.price;
+    if (updates.paperSize !== undefined) updateData.paperSize = updates.paperSize;
+    if (updates.paperVariant !== undefined) updateData.paperVariant = updates.paperVariant;
+    
+    const [material] = await db.update(materials).set(updateData).where(eq(materials.id, id)).returning();
     return material;
   }
 

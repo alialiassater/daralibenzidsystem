@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, updateBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, insertSavedCalculationSchema, type InsertActivityLog } from "@shared/schema";
+import { insertMaterialSchema, updateMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, updateBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, insertSavedCalculationSchema, type InsertActivityLog } from "@shared/schema";
 import { createHash } from "crypto";
 
 // دالة لتشفير كلمة المرور
@@ -387,6 +387,50 @@ export async function registerRoutes(
       res.json(material);
     } catch (error) {
       res.status(500).json({ message: "خطأ في جلب المادة" });
+    }
+  });
+
+  // تحديث مادة (السعر، الحجم، النوع)
+  app.patch("/api/materials/:id", async (req, res) => {
+    try {
+      const userRole = req.headers['x-user-role'];
+      const { currentUser, ...updateData } = req.body;
+      const materialId = req.params.id;
+      
+      // التحقق من صلاحية التعديل (مسموح للمدير فقط)
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية التعديل متاحة للمدير فقط" });
+      }
+      
+      const existingMaterial = await storage.getMaterial(materialId);
+      if (!existingMaterial) {
+        return res.status(404).json({ message: "المادة غير موجودة" });
+      }
+      
+      const validatedData = updateMaterialSchema.parse(updateData);
+      const material = await storage.updateMaterial(materialId, validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'material',
+          entityId: materialId,
+          entityName: material.name,
+          details: `تحديث مادة: ${material.name}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
+      res.json(material);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: error.errors });
+      }
+      res.status(500).json({ message: "خطأ في تحديث المادة" });
     }
   });
 

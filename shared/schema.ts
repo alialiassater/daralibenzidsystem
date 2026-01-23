@@ -20,9 +20,12 @@ export const materials = pgTable("materials", {
   name: text("name").notNull(),
   type: text("type").notNull(), // paper, ink, cover, book, other
   quantity: integer("quantity").notNull().default(0),
-  minQuantity: integer("min_quantity").notNull().default(10),
+  minQuantity: integer("min_quantity").notNull().default(0), // لم يعد مستخدماً
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   barcode: text("barcode").notNull().unique(),
+  // خصائص الورق (تظهر فقط عند type = paper)
+  paperSize: text("paper_size"), // A3, A4, A5
+  paperVariant: text("paper_variant"), // اكسترا، اوتوكولون، انسيار، أخرى
   isDeleted: boolean("is_deleted").notNull().default(false), // حذف منطقي
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -197,7 +200,19 @@ export const insertMaterialSchema = createInsertSchema(materials).omit({
   isDeleted: true,
 }).extend({
   price: priceTransform,
+  minQuantity: z.number().optional().default(0),
+  paperSize: z.string().optional().nullable(),
+  paperVariant: z.string().optional().nullable(),
 });
+
+// مخطط تحديث المادة - لتعديل السعر والحجم والنوع
+export const updateMaterialSchema = z.object({
+  price: priceTransform.optional(),
+  paperSize: z.string().optional().nullable(),
+  paperVariant: z.string().optional().nullable(),
+});
+
+export type UpdateMaterial = z.infer<typeof updateMaterialSchema>;
 
 export const insertInventoryMovementSchema = createInsertSchema(inventoryMovements).omit({
   id: true,

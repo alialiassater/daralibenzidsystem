@@ -25,9 +25,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PAPER_SIZES = [
-  { label: "A4", value: "A4", paperPrice: 5.85, coverPrice: 150 },
-  { label: "A3", value: "A3", paperPrice: 12, coverPrice: 150 },
-  { label: "A5", value: "A5", paperPrice: 3.25, coverPrice: 150 },
+  { label: "16/24", value: "16/24", prices: { normal: 5.85, colored: 5.85 }, coverPrice: 150 },
+  { label: "15/22", value: "15/22", prices: { normal: 3.25, colored: 9.33 }, coverPrice: 210 },
+  { label: "A3", value: "A3", prices: { normal: 12, colored: 12 }, coverPrice: 210 },
 ];
 
 export default function PricingCalculatorPage() {
@@ -39,7 +39,8 @@ export default function PricingCalculatorPage() {
   const [copies, setCopies] = useState<number>(0);
   const [bookTitle, setBookTitle] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [paperSize, setPaperSize] = useState<string>("A4");
+  const [paperSize, setPaperSize] = useState<string>("16/24");
+  const [paperType, setPaperType] = useState<"normal" | "colored">("normal");
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState<number>(0);
 
@@ -104,7 +105,7 @@ export default function PricingCalculatorPage() {
     const selectedSize = PAPER_SIZES.find(s => s.value === paperSize);
     if (!selectedSize) return;
 
-    const paperPrice = selectedSize.paperPrice;
+    const paperPrice = selectedSize.prices[paperType];
     const coverPrice = selectedSize.coverPrice;
     
     // المعادلة المعتمدة: (سعر الورقة × عدد الأوراق × عدد النسخ) + (سعر الغلاف × عدد النسخ)
@@ -133,7 +134,7 @@ export default function PricingCalculatorPage() {
       discountAmount,
       finalTotal,
     });
-  }, [pageCount, copies, paperSize, discountType, discountValue, isAdmin]);
+  }, [pageCount, copies, paperSize, paperType, discountType, discountValue, isAdmin]);
 
   const filteredCalcs = savedCalcs?.filter(calc => 
     calc.bookTitle.toLowerCase().includes(searchTerm.toLowerCase())
@@ -212,18 +213,32 @@ export default function PricingCalculatorPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm">حجم الورق</Label>
-              <Select value={paperSize} onValueChange={setPaperSize}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAPER_SIZES.map(size => (
-                    <SelectItem key={size.value} value={size.value}>{size.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm">حجم الورق</Label>
+                <Select value={paperSize} onValueChange={setPaperSize}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAPER_SIZES.map(size => (
+                      <SelectItem key={size.value} value={size.value}>{size.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">نوع الورق</Label>
+                <Select value={paperType} onValueChange={(v: "normal" | "colored") => setPaperType(v)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">عادي (أبيض وأسود)</SelectItem>
+                    <SelectItem value="colored">ملون</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -254,8 +269,8 @@ export default function PricingCalculatorPage() {
             <div className="p-3 bg-muted/30 rounded-lg border border-dashed space-y-2 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">الأسعار المعتمدة للحجم المختار:</p>
               <div className="flex justify-between">
-                <span>سعر الورقة (شامل الحبر):</span>
-                <span className="font-bold">{PAPER_SIZES.find(s => s.value === paperSize)?.paperPrice} دج</span>
+                <span>سعر الورقة ({paperType === 'colored' ? 'ملون' : 'عادي'}):</span>
+                <span className="font-bold">{PAPER_SIZES.find(s => s.value === paperSize)?.prices[paperType]} دج</span>
               </div>
               <div className="flex justify-between">
                 <span>سعر الغلاف (لكل نسخة):</span>

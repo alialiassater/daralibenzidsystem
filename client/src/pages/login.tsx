@@ -130,11 +130,6 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
-          <div className="mt-6 p-4 rounded-md bg-muted/50 text-sm">
-            <p className="font-medium mb-2">بيانات تجريبية:</p>
-            <p className="text-muted-foreground">المستخدم: admin</p>
-            <p className="text-muted-foreground">كلمة المرور: admin123</p>
-          </div>
         </CardContent>
       </Card>
     </div>

@@ -269,6 +269,17 @@ export class DatabaseStorage implements IStorage {
     const sortedReadyBooks = readyBooks
       .sort((a, b) => (b.readyQuantity || 0) - (a.readyQuantity || 0));
 
+    const booksByCategory: Record<string, number> = {};
+    allBooks.forEach(b => {
+      const cat = b.category || 'أخرى';
+      booksByCategory[cat] = (booksByCategory[cat] || 0) + 1;
+    });
+
+    const inventoryByQuantity = allMaterials
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10)
+      .map(m => ({ name: m.name, value: m.quantity }));
+
     return {
       totalMaterials: allMaterials.length,
       lowStockCount: lowStockItems.length,
@@ -296,6 +307,12 @@ export class DatabaseStorage implements IStorage {
         status: o.status,
         cost: o.cost,
       })),
+      booksByStatus: [
+        { name: 'جاهز', value: readyBooksCount },
+        { name: 'قيد الطباعة', value: allBooks.length - readyBooksCount }
+      ],
+      booksByCategory: Object.entries(booksByCategory).map(([name, value]) => ({ name, value })),
+      inventoryByQuantity
     };
   }
 }

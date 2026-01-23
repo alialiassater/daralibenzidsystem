@@ -14,6 +14,7 @@ import InventoryPage from "@/pages/inventory";
 import OrdersPage from "@/pages/orders";
 import BooksPage from "@/pages/books";
 import EmployeesPage from "@/pages/employees";
+import StatsPage from "@/pages/stats";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/inventory" component={InventoryPage} />
       <Route path="/orders" component={OrdersPage} />
       <Route path="/books" component={BooksPage} />
+      <Route path="/stats" component={StatsPage} />
       <Route path="/employees">
         {() => <ProtectedRoute component={EmployeesPage} page="employees" />}
       </Route>

@@ -2,10 +2,16 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Printer, BookOpen, AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft } from "lucide-react";
+import { Package, Printer, BookOpen, AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface DashboardStats {
@@ -92,9 +98,32 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">لوحة التحكم</h1>
-        <p className="text-muted-foreground mt-1">نظرة عامة على المطبعة ودار النشر</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">لوحة التحكم</h1>
+          <p className="text-muted-foreground mt-1">نظرة عامة على المطبعة ودار النشر</p>
+        </div>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="default" className="w-full sm:w-auto flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              الإحصائيات
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => navigate("/stats?tab=books")}>
+              إحصائيات الكتب
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/stats?tab=inventory")}>
+              إحصائيات المخزون
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/stats?tab=orders")}>
+              إحصائيات الطباعة
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">

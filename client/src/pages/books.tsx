@@ -452,9 +452,11 @@ export default function BooksPage() {
   };
 
   const handleBarcodeScan = (barcode: string) => {
-    const book = books?.find(b => b.isbn === barcode || b.barcode === barcode);
+    // إزالة أي بادئات قد تكون موجودة في الباركود الممسوح لضمان التطابق مع ISBN
+    const cleanBarcode = barcode.replace(/^(BOOK|MAT)/, "");
+    const book = books?.find(b => b.isbn === cleanBarcode);
     if (book) {
-      setSearchQuery(barcode);
+      setSearchQuery(cleanBarcode);
       toast({ title: "تم العثور على الكتاب" });
     } else {
       toast({ title: "الكتاب غير موجود", variant: "destructive" });
@@ -465,8 +467,7 @@ export default function BooksPage() {
     const matchesSearch = 
       b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.isbn.includes(searchQuery) ||
-      b.barcode.includes(searchQuery);
+      b.isbn.includes(searchQuery);
     
     const matchesCategory = categoryFilter === "all" || b.category === categoryFilter;
     

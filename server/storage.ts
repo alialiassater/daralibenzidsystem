@@ -234,7 +234,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBook(insertBook: InsertBook): Promise<Book> {
-    const barcode = insertBook.isbn; // استخدام ISBN كباركود
+    if (!insertBook.isbn) {
+      throw new Error("رقم ISBN مطلوب لتوليد الباركود");
+    }
+    const barcode = insertBook.isbn; // استخدام ISBN كباركود حصرياً
     const status = calculateBookStatus(
       insertBook.readyQuantity || 0,
       insertBook.printingQuantity || 0

@@ -4,6 +4,7 @@ import {
   Package,
   Printer,
   BookOpen,
+  Calculator,
   LogOut,
   User,
   Users,
@@ -50,6 +51,12 @@ const menuItems = [
     url: "/books",
     icon: BookOpen,
     page: "books",
+  },
+  {
+    title: "حساب التكلفة",
+    url: "/pricing-calculator",
+    icon: Calculator,
+    page: "dashboard", // جعلها متاحة للجميع كما طلب المستخدم أو للمدير، استخدمنا dashboard للسماح بالوصول حالياً
   },
   {
     title: "الموظفون",

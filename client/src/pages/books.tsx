@@ -43,11 +43,11 @@ const bookSchema = z.object({
   totalQuantity: z.coerce.number().min(0, "الكمية الإجمالية مطلوبة"),
   readyQuantity: z.coerce.number().min(0, "الكمية الجاهزة مطلوبة"),
   printingQuantity: z.coerce.number().min(0, "الكمية قيد الطباعة مطلوبة"),
-  price: z.coerce.number().min(0, "السعر مطلوب"),
-  pageCount: z.coerce.number().min(0, "عدد الصفحات مطلوب"),
-  paperPricePerSheet: z.coerce.number().min(0, "سعر الورقة مطلوب"),
+  price: z.coerce.number().min(0).default(0),
+  pageCount: z.coerce.number().min(0).default(0),
+  paperPricePerSheet: z.coerce.number().min(0).default(0),
   inkCartridgePrice: z.coerce.number().min(0).default(3500),
-  pagesPerCartridge: z.coerce.number().min(1, "عدد الصفحات لكل علبة مطلوب"),
+  pagesPerCartridge: z.coerce.number().min(1).default(1000),
   additionalCosts: z.coerce.number().min(0).default(0),
 }).refine((data) => data.readyQuantity <= data.totalQuantity, {
   message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية",
@@ -81,12 +81,12 @@ const editBookSchema = z.object({
   totalQuantity: z.coerce.number().min(0),
   readyQuantity: z.coerce.number().min(0),
   printingQuantity: z.coerce.number().min(0),
-  price: z.coerce.number().min(0),
-  pageCount: z.coerce.number().min(0),
-  paperPricePerSheet: z.coerce.number().min(0),
-  inkCartridgePrice: z.coerce.number().min(0),
-  pagesPerCartridge: z.coerce.number().min(1),
-  additionalCosts: z.coerce.number().min(0),
+  price: z.coerce.number().min(0).optional(),
+  pageCount: z.coerce.number().min(0).optional(),
+  paperPricePerSheet: z.coerce.number().min(0).optional(),
+  inkCartridgePrice: z.coerce.number().min(0).optional(),
+  pagesPerCartridge: z.coerce.number().min(1).optional(),
+  additionalCosts: z.coerce.number().min(0).optional(),
 }).refine((data) => data.readyQuantity <= data.totalQuantity, {
   message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية",
   path: ["readyQuantity"],
@@ -246,8 +246,7 @@ function BookCard({ book, onViewBarcode, onEditQuantity, onEditBook, onDeleteBoo
             <p className="text-muted-foreground">قيد الطباعة</p>
           </div>
         </div>
-        <div className="flex items-center justify-between pt-2 border-t">
-          <span className="font-bold text-primary">{Number(book.price).toLocaleString()} د.ج</span>
+        <div className="flex items-center justify-end pt-2 border-t">
           <div className="flex gap-1">
             <Button size="icon" variant="ghost" onClick={() => onEditBook(book)} data-testid={`button-edit-book-${book.id}`}>
               <Pencil className="h-4 w-4" />

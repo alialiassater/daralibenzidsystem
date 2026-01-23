@@ -16,6 +16,7 @@ import BooksPage from "@/pages/books";
 import EmployeesPage from "@/pages/employees";
 import StatsPage from "@/pages/stats";
 import ActivityLogsPage from "@/pages/activity-logs";
+import PricingCalculatorPage from "@/pages/pricing-calculator";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/inventory" component={InventoryPage} />
       <Route path="/orders" component={OrdersPage} />
       <Route path="/books" component={BooksPage} />
+      <Route path="/pricing-calculator" component={PricingCalculatorPage} />
       <Route path="/stats" component={StatsPage} />
       <Route path="/employees">
         {() => <ProtectedRoute component={EmployeesPage} page="employees" />}

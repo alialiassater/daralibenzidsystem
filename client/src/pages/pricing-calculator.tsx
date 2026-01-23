@@ -60,13 +60,24 @@ export default function PricingCalculatorPage() {
   });
 
   useEffect(() => {
+    // التحقق من القيم قبل الحساب
+    if (pageCount <= 0 || copies <= 0 || paperPrice <= 0) {
+      setResults({
+        inkCartridges: 0,
+        paperCost: 0,
+        inkCost: 0,
+        totalCost: 0,
+      });
+      return;
+    }
+
     const selectedSize = PAPER_SIZES.find(s => s.value === paperSize);
-    const multiplier = paperSize === "custom" ? customMultiplier : (selectedSize?.multiplier || 1);
+    const multiplier = paperSize === "custom" ? Number(customMultiplier) : (selectedSize?.multiplier || 1);
     
-    const totalPages = pageCount * copies;
-    const inkCost = totalPages > 0 ? inkPrice : 0; // علبة واحدة إذا كان هناك صفحات
-    const paperCost = totalPages * paperPrice * multiplier;
-    const totalCost = paperCost + inkCost + extraCosts;
+    const totalPages = Number(pageCount) * Number(copies);
+    const inkCost = totalPages > 0 ? Number(inkPrice) : 0; // علبة واحدة إذا كان هناك صفحات
+    const paperCost = totalPages * Number(paperPrice) * multiplier;
+    const totalCost = paperCost + inkCost + Number(extraCosts);
 
     setResults({
       inkCartridges: totalPages > 0 ? 1 : 0,
@@ -165,8 +176,9 @@ export default function PricingCalculatorPage() {
                 <Label className="text-sm">عدد الصفحات</Label>
                 <Input 
                   type="number" 
+                  min="1"
                   value={pageCount || ''} 
-                  onChange={(e) => setPageCount(Number(e.target.value))}
+                  onChange={(e) => setPageCount(Math.max(0, Number(e.target.value)))}
                   placeholder="0"
                   className="h-9"
                 />
@@ -175,8 +187,9 @@ export default function PricingCalculatorPage() {
                 <Label className="text-sm">عدد النسخ</Label>
                 <Input 
                   type="number" 
+                  min="1"
                   value={copies || ''} 
-                  onChange={(e) => setCopies(Number(e.target.value))}
+                  onChange={(e) => setCopies(Math.max(0, Number(e.target.value)))}
                   placeholder="0"
                   className="h-9"
                 />

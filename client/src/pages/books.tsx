@@ -627,47 +627,28 @@ export default function BooksPage() {
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={addForm.control}
-                      name="totalQuantity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>الكمية الإجمالية (عدد النسخ)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} data-testid="input-book-total" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addForm.control}
-                      name="pageCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>عدد الصفحات</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} data-testid="input-book-pages" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="bg-muted/30 p-4 rounded-lg space-y-4 border">
-                    <h4 className="font-bold text-sm border-b pb-2 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4" />
-                      حاسبة التكلفة والبيع
-                    </h4>
+                  <div className="bg-muted/30 p-4 rounded-lg space-y-4 border border-dashed">
+                    <h4 className="font-bold text-sm text-muted-foreground border-b pb-2">حاسبة تكلفة الإنتاج والبيع</h4>
                     <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={addForm.control}
+                        name="pageCount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>عدد الصفحات</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <FormField
                         control={addForm.control}
                         name="paperPricePerSheet"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>سعر الورقة الواحدة (د.ج)</FormLabel>
+                            <FormLabel>سعر الورقة (د.ج)</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
@@ -719,7 +700,7 @@ export default function BooksPage() {
                       </div>
                     )}
 
-                    <div className="pt-2 space-y-1 text-sm bg-primary/5 p-3 rounded border border-primary/10">
+                    <div className="pt-2 space-y-2 text-sm bg-primary/5 p-4 rounded-lg border border-primary/20">
                       {(() => {
                         const values = addForm.getValues();
                         const pageCount = Number(values.pageCount) || 0;
@@ -736,30 +717,41 @@ export default function BooksPage() {
                         const totalProductionCost = totalPaperCost + totalInkCost + (extra * totalQty);
                         
                         return (
-                          <>
-                            <div className="flex justify-between">
-                              <span>حبر مطلوب:</span>
-                              <span className="font-bold">{inkCartridgesNeeded} علبة</span>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex justify-between p-2 bg-background/50 rounded border">
+                                <span className="text-muted-foreground">حبر مطلوب:</span>
+                                <span className="font-bold">{inkCartridgesNeeded} علبة</span>
+                              </div>
+                              <div className="flex justify-between p-2 bg-background/50 rounded border">
+                                <span className="text-muted-foreground">تكلفة الورق:</span>
+                                <span className="font-bold">{totalPaperCost.toLocaleString()} د.ج</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between">
-                              <span>تكلفة الورق:</span>
-                              <span className="font-bold">{totalPaperCost.toLocaleString()} د.ج</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>تكلفة الحبر:</span>
-                              <span className="font-bold">{totalInkCost.toLocaleString()} د.ج</span>
-                            </div>
-                            <div className="flex justify-between text-primary border-t pt-1 mt-1 font-bold">
+                            <div className="flex justify-between text-primary border-t border-primary/10 pt-2 font-bold text-base">
                               <span>إجمالي تكلفة الإنتاج:</span>
                               <span>{totalProductionCost.toLocaleString()} د.ج</span>
                             </div>
-                          </>
+                          </div>
                         );
                       })()}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="totalQuantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>الكمية الإجمالية</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} data-testid="input-book-total" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={addForm.control}
                       name="readyQuantity"
@@ -787,19 +779,34 @@ export default function BooksPage() {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={addForm.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>سعر البيع المقترح للنسخة (د.ج)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+
+                  <div className="p-4 bg-green-50 dark:bg-green-900/10 rounded-xl border-2 border-green-200 dark:border-green-800 space-y-2">
+                    <FormField
+                      control={addForm.control}
+                      name="price"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <FormLabel className="text-lg font-bold text-green-700 dark:text-green-400">سعر البيع النهائي (د.ج)</FormLabel>
+                            <span className="text-2xl font-black text-green-600">
+                              {(Number(addForm.watch("price")) || 0).toLocaleString()} د.ج
+                            </span>
+                          </div>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              step="0.01" 
+                              {...field} 
+                              data-testid="input-book-price"
+                              className="text-2xl h-14 text-center font-bold bg-white dark:bg-background border-green-300 focus-visible:ring-green-500"
+                              placeholder="0.00"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <Button
                     type="submit"
                     className="w-full"

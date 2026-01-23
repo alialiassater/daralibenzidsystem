@@ -14,7 +14,7 @@ import { ar } from "date-fns/locale";
 import type { SavedCalculation } from "@shared/schema";
 
 const PAPER_SIZES = [
-  { label: "A4", value: "A4", paperPrice: 5.85, coverPrice: 80 },
+  { label: "A4", value: "A4", paperPrice: 5.85, coverPrice: 150 },
   { label: "A3", value: "A3", paperPrice: 12, coverPrice: 150 },
   { label: "A5", value: "A5", paperPrice: 3.25, coverPrice: 150 },
 ];

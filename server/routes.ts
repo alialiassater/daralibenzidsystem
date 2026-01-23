@@ -121,15 +121,22 @@ export async function registerRoutes(
     try {
       const { userId, userName, userRole } = req.body;
       
-      await logActivity({
-        userId,
-        userName: userName || 'مستخدم',
-        userRole: userRole || 'unknown',
-        action: 'logout',
-        entityType: 'auth',
-        details: 'تسجيل خروج',
-        ipAddress: getClientIp(req),
-      });
+      // التحقق من صحة بيانات المستخدم قبل التسجيل
+      if (userId) {
+        const user = await storage.getUser(userId);
+        // فقط سجل الخروج إذا كان المستخدم موجوداً ومتطابق
+        if (user && user.fullName === userName) {
+          await logActivity({
+            userId: user.id,
+            userName: user.fullName,
+            userRole: user.role,
+            action: 'logout',
+            entityType: 'auth',
+            details: 'تسجيل خروج',
+            ipAddress: getClientIp(req),
+          });
+        }
+      }
       
       res.json({ success: true });
     } catch (error) {
@@ -660,6 +667,12 @@ export async function registerRoutes(
   // ===== سجل النشاط =====
   app.get("/api/activity-logs", async (req, res) => {
     try {
+      // التحقق من أن المستخدم مدير - يتم إرسال role في header
+      const userRole = req.headers['x-user-role'];
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "غير مسموح لك بالوصول إلى سجل النشاط" });
+      }
+      
       const { userId, action, entityType } = req.query;
       const filters: { userId?: string; action?: string; entityType?: string } = {};
       

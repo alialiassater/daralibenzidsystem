@@ -56,9 +56,21 @@ export default function ActivityLogsPage() {
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
 
-  // جلب سجلات النشاط
+  // جلب سجلات النشاط مع إرسال role في الهيدر للتحقق
   const { data: logs, isLoading: logsLoading } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity-logs"],
+    queryFn: async () => {
+      const response = await fetch("/api/activity-logs", {
+        headers: {
+          "x-user-role": user?.role || "",
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch activity logs");
+      }
+      return response.json();
+    },
+    enabled: user?.role === "admin",
   });
 
   // جلب قائمة الموظفين للفلترة

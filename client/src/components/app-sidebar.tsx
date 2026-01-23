@@ -7,6 +7,7 @@ import {
   LogOut,
   User,
   Users,
+  ScrollText,
 } from "lucide-react";
 import logoImage from "/logo.png";
 import {
@@ -55,6 +56,12 @@ const menuItems = [
     url: "/employees",
     icon: Users,
     page: "employees",
+  },
+  {
+    title: "سجل النشاط",
+    url: "/activity-logs",
+    icon: ScrollText,
+    page: "activity-logs",
   },
 ];
 

@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Printer, Search, Loader2, Eye, Clock, CheckCircle, XCircle, PlayCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PrintOrder } from "@shared/schema";
+import { useAuth } from "@/lib/auth-context";
 
 const orderSchema = z.object({
   customerName: z.string().min(1, "اسم الزبون مطلوب"),
@@ -84,6 +85,7 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: orders, isLoading } = useQuery<PrintOrder[]>({
     queryKey: ["/api/orders"],
@@ -103,7 +105,7 @@ export default function OrdersPage() {
 
   const addMutation = useMutation({
     mutationFn: async (data: OrderForm) => {
-      return apiRequest("POST", "/api/orders", data);
+      return apiRequest("POST", "/api/orders", { ...data, currentUser: user });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
@@ -119,7 +121,7 @@ export default function OrdersPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return apiRequest("PATCH", `/api/orders/${id}/status`, { status });
+      return apiRequest("PATCH", `/api/orders/${id}/status`, { status, currentUser: user });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });

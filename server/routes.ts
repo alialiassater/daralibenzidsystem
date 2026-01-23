@@ -1,11 +1,39 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
+import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, type InsertActivityLog } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+
+// دالة مساعدة للحصول على عنوان IP
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || 'unknown';
+}
+
+// دالة مساعدة لتسجيل النشاط
+async function logActivity(data: {
+  userId?: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  entityName?: string;
+  details?: string;
+  ipAddress?: string;
+}) {
+  try {
+    await storage.createActivityLog(data as InsertActivityLog);
+  } catch (error) {
+    console.error('Error logging activity:', error);
+  }
+}
 
 // إعداد Multer لرفع صور الأغلفة
 const uploadsDir = path.join(process.cwd(), "uploads", "covers");
@@ -71,9 +99,41 @@ export async function registerRoutes(
         return res.status(401).json({ message: "بيانات الدخول غير صحيحة" });
       }
       
+      // تسجيل نشاط الدخول
+      await logActivity({
+        userId: user.id,
+        userName: user.fullName,
+        userRole: user.role,
+        action: 'login',
+        entityType: 'auth',
+        details: 'تسجيل دخول ناجح',
+        ipAddress: getClientIp(req),
+      });
+      
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "خطأ في الخادم" });
+    }
+  });
+
+  // تسجيل الخروج
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const { userId, userName, userRole } = req.body;
+      
+      await logActivity({
+        userId,
+        userName: userName || 'مستخدم',
+        userRole: userRole || 'unknown',
+        action: 'logout',
+        entityType: 'auth',
+        details: 'تسجيل خروج',
+        ipAddress: getClientIp(req),
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في تسجيل الخروج" });
     }
   });
 
@@ -91,7 +151,8 @@ export async function registerRoutes(
 
   app.post("/api/users", async (req, res) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
+      const { currentUser, ...userData } = req.body;
+      const validatedData = insertUserSchema.parse(userData);
       
       // التحقق من عدم وجود اسم مستخدم مكرر
       const existingUser = await storage.getUserByUsername(validatedData.username);
@@ -100,6 +161,22 @@ export async function registerRoutes(
       }
       
       const user = await storage.createUser(validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'create',
+          entityType: 'user',
+          entityId: user.id,
+          entityName: user.fullName,
+          details: `إضافة موظف جديد: ${user.fullName} (${user.role})`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       const { password, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
@@ -113,7 +190,8 @@ export async function registerRoutes(
   app.patch("/api/users/:id", async (req, res) => {
     try {
       const userId = req.params.id;
-      const validatedData = updateUserSchema.parse(req.body);
+      const { currentUser, ...updateData } = req.body;
+      const validatedData = updateUserSchema.parse(updateData);
       
       const user = await storage.getUser(userId);
       if (!user) {
@@ -129,6 +207,22 @@ export async function registerRoutes(
       }
       
       const updatedUser = await storage.updateUser(userId, validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'user',
+          entityId: userId,
+          entityName: updatedUser.fullName,
+          details: `تعديل بيانات موظف: ${updatedUser.fullName}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       const { password, ...userWithoutPassword } = updatedUser;
       res.json(userWithoutPassword);
     } catch (error) {
@@ -142,7 +236,7 @@ export async function registerRoutes(
   app.patch("/api/users/:id/toggle-active", async (req, res) => {
     try {
       const userId = req.params.id;
-      const { isActive } = req.body;
+      const { isActive, currentUser } = req.body;
       
       const user = await storage.getUser(userId);
       if (!user) {
@@ -155,6 +249,22 @@ export async function registerRoutes(
       }
       
       await storage.toggleUserActive(userId, isActive);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'user',
+          entityId: userId,
+          entityName: user.fullName,
+          details: isActive ? `تفعيل حساب: ${user.fullName}` : `تعطيل حساب: ${user.fullName}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "خطأ في تحديث حالة المستخدم" });
@@ -173,8 +283,25 @@ export async function registerRoutes(
 
   app.post("/api/materials", async (req, res) => {
     try {
-      const validatedData = insertMaterialSchema.parse(req.body);
+      const { currentUser, ...materialData } = req.body;
+      const validatedData = insertMaterialSchema.parse(materialData);
       const material = await storage.createMaterial(validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'create',
+          entityType: 'material',
+          entityId: material.id,
+          entityName: material.name,
+          details: `إضافة مادة جديدة: ${material.name} (${material.type})`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json(material);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -199,7 +326,7 @@ export async function registerRoutes(
   // حذف مادة (Soft Delete)
   app.delete("/api/materials/:id", async (req, res) => {
     try {
-      const { userRole } = req.body;
+      const { userRole, currentUser } = req.body;
       const materialId = req.params.id;
       
       const material = await storage.getMaterial(materialId);
@@ -216,6 +343,22 @@ export async function registerRoutes(
       }
       
       await storage.softDeleteMaterial(materialId);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'delete',
+          entityType: 'material',
+          entityId: materialId,
+          entityName: material.name,
+          details: `حذف مادة: ${material.name}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json({ success: true, message: "تم حذف المادة بنجاح" });
     } catch (error) {
       res.status(500).json({ message: "خطأ في حذف المادة" });
@@ -234,7 +377,8 @@ export async function registerRoutes(
 
   app.post("/api/inventory-movements", async (req, res) => {
     try {
-      const validatedData = insertInventoryMovementSchema.parse(req.body);
+      const { currentUser, ...movementData } = req.body;
+      const validatedData = insertInventoryMovementSchema.parse(movementData);
       
       // Update material quantity
       const material = await storage.getMaterial(validatedData.materialId);
@@ -254,6 +398,23 @@ export async function registerRoutes(
       
       await storage.updateMaterialQuantity(material.id, newQuantity);
       const movement = await storage.createInventoryMovement(validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        const actionType = validatedData.type === 'in' ? 'إدخال' : 'إخراج';
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: validatedData.type === 'in' ? 'inventory_in' : 'inventory_out',
+          entityType: 'inventory_movement',
+          entityId: movement.id,
+          entityName: material.name,
+          details: `${actionType} ${validatedData.quantity} من ${material.name}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json(movement);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -275,8 +436,25 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     try {
-      const validatedData = insertPrintOrderSchema.parse(req.body);
+      const { currentUser, ...orderData } = req.body;
+      const validatedData = insertPrintOrderSchema.parse(orderData);
       const order = await storage.createOrder(validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'create',
+          entityType: 'order',
+          entityId: order.id,
+          entityName: order.customerName,
+          details: `إضافة طلب طباعة جديد: ${order.customerName} - ${order.printType}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -288,8 +466,32 @@ export async function registerRoutes(
 
   app.patch("/api/orders/:id/status", async (req, res) => {
     try {
-      const { status } = req.body;
+      const { status, currentUser } = req.body;
+      const order = await storage.getOrder(req.params.id);
+      
       await storage.updateOrderStatus(req.params.id, status);
+      
+      // تسجيل النشاط
+      if (currentUser && order) {
+        const statusArabic: Record<string, string> = {
+          pending: 'قيد الانتظار',
+          in_progress: 'قيد التنفيذ',
+          completed: 'مكتمل',
+          cancelled: 'ملغي'
+        };
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'order',
+          entityId: req.params.id,
+          entityName: order.customerName,
+          details: `تغيير حالة طلب ${order.customerName} إلى: ${statusArabic[status] || status}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "خطأ في تحديث الحالة" });
@@ -308,8 +510,25 @@ export async function registerRoutes(
 
   app.post("/api/books", async (req, res) => {
     try {
-      const validatedData = insertBookSchema.parse(req.body);
+      const { currentUser, ...bookData } = req.body;
+      const validatedData = insertBookSchema.parse(bookData);
       const book = await storage.createBook(validatedData);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'create',
+          entityType: 'book',
+          entityId: book.id,
+          entityName: book.title,
+          details: `إضافة كتاب جديد: ${book.title} - ${book.author}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
       res.json(book);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -328,7 +547,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "الكتاب غير موجود" });
       }
       
-      const { totalQuantity, readyQuantity, printingQuantity } = req.body;
+      const { totalQuantity, readyQuantity, printingQuantity, currentUser } = req.body;
       
       // التحقق من صحة الكميات
       if (totalQuantity < 0 || readyQuantity < 0 || printingQuantity < 0) {
@@ -345,12 +564,37 @@ export async function registerRoutes(
         return res.status(400).json({ message: "مجموع الكمية الجاهزة وقيد الطباعة لا يمكن أن يتجاوز الكمية الإجمالية" });
       }
       
+      const oldStatus = book.status;
       const updatedBook = await storage.updateBookQuantities(
         bookId, 
         totalQuantity, 
         readyQuantity, 
         printingQuantity
       );
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        const statusChanged = oldStatus !== updatedBook.status;
+        const statusArabic: Record<string, string> = {
+          ready: 'جاهز',
+          printing: 'قيد الطباعة',
+          unavailable: 'غير متوفر'
+        };
+        
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'book',
+          entityId: bookId,
+          entityName: book.title,
+          details: statusChanged 
+            ? `تغيير حالة كتاب "${book.title}" إلى: ${statusArabic[updatedBook.status] || updatedBook.status}`
+            : `تحديث كميات كتاب "${book.title}": جاهز=${readyQuantity}, قيد الطباعة=${printingQuantity}`,
+          ipAddress: getClientIp(req),
+        });
+      }
       
       res.json(updatedBook);
     } catch (error) {
@@ -410,6 +654,23 @@ export async function registerRoutes(
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "خطأ في جلب الإحصائيات" });
+    }
+  });
+
+  // ===== سجل النشاط =====
+  app.get("/api/activity-logs", async (req, res) => {
+    try {
+      const { userId, action, entityType } = req.query;
+      const filters: { userId?: string; action?: string; entityType?: string } = {};
+      
+      if (userId && typeof userId === 'string') filters.userId = userId;
+      if (action && typeof action === 'string') filters.action = action;
+      if (entityType && typeof entityType === 'string') filters.entityType = entityType;
+      
+      const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : undefined);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في جلب سجل النشاط" });
     }
   });
 

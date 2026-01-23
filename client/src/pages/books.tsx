@@ -16,6 +16,7 @@ import { BarcodeGenerator } from "@/components/barcode-generator";
 import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image, Edit2, Package } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Book } from "@shared/schema";
+import { useAuth } from "@/lib/auth-context";
 
 const BOOK_CATEGORIES = [
   { value: "تعليمي", label: "تعليمي" },
@@ -224,6 +225,7 @@ export default function BooksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: books, isLoading } = useQuery<Book[]>({
     queryKey: ["/api/books"],
@@ -254,7 +256,7 @@ export default function BooksPage() {
 
   const addMutation = useMutation({
     mutationFn: async (data: BookForm) => {
-      const response = await apiRequest("POST", "/api/books", data);
+      const response = await apiRequest("POST", "/api/books", { ...data, currentUser: user });
       return response.json() as Promise<Book>;
     },
     onSuccess: () => {
@@ -271,7 +273,7 @@ export default function BooksPage() {
 
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ bookId, data }: { bookId: string; data: QuantityForm }) => {
-      const response = await apiRequest("PATCH", `/api/books/${bookId}/quantities`, data);
+      const response = await apiRequest("PATCH", `/api/books/${bookId}/quantities`, { ...data, currentUser: user });
       return response.json() as Promise<Book>;
     },
     onSuccess: () => {

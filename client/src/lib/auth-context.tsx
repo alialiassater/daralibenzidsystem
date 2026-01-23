@@ -25,6 +25,7 @@ const pagePermissions: Record<string, UserRole[]> = {
   books: ["admin", "supervisor", "employee"],
   expenses: ["admin", "supervisor"],
   employees: ["admin"],
+  "activity-logs": ["admin"],
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,7 +45,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("user", JSON.stringify(user));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // تسجيل الخروج في سجل النشاط
+    if (user) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.id,
+            userName: user.fullName,
+            userRole: user.role,
+          }),
+        });
+      } catch (error) {
+        console.error("Error logging logout:", error);
+      }
+    }
     setUser(null);
     localStorage.removeItem("user");
   };

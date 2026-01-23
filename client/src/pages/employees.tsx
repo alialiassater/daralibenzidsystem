@@ -111,7 +111,7 @@ export default function EmployeesPage() {
 
   const addMutation = useMutation({
     mutationFn: async (data: EmployeeForm) => {
-      const res = await apiRequest("POST", "/api/users", data);
+      const res = await apiRequest("POST", "/api/users", { ...data, currentUser: user });
       return res.json();
     },
     onSuccess: () => {
@@ -128,7 +128,7 @@ export default function EmployeesPage() {
 
   const editMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: EditEmployeeForm }) => {
-      const res = await apiRequest("PATCH", `/api/users/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/users/${id}`, { ...data, currentUser: user });
       return res.json();
     },
     onSuccess: () => {
@@ -145,7 +145,7 @@ export default function EmployeesPage() {
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/users/${id}/toggle-active`, { isActive });
+      const res = await apiRequest("PATCH", `/api/users/${id}/toggle-active`, { isActive, currentUser: user });
       return res.json();
     },
     onSuccess: () => {

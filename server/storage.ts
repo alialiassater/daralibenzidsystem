@@ -1,11 +1,12 @@
 import {
-  users, materials, inventoryMovements, printOrders, orderMaterials, books, expenses,
+  users, materials, inventoryMovements, printOrders, orderMaterials, books, expenses, activityLogs,
   type User, type InsertUser, type UpdateUser,
   type Material, type InsertMaterial,
   type InventoryMovement, type InsertInventoryMovement,
   type PrintOrder, type InsertPrintOrder,
   type Book, type InsertBook,
   type Expense, type InsertExpense,
+  type ActivityLog, type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, and, gte, lte, desc, ne } from "drizzle-orm";
@@ -46,6 +47,10 @@ export interface IStorage {
 
   getExpenses(): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
+
+  // سجل النشاط
+  getActivityLogs(filters?: { userId?: string; action?: string; entityType?: string }): Promise<ActivityLog[]>;
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
 
   getDashboardStats(): Promise<{
     totalMaterials: number;
@@ -242,6 +247,35 @@ export class DatabaseStorage implements IStorage {
   async createExpense(insertExpense: InsertExpense): Promise<Expense> {
     const [expense] = await db.insert(expenses).values(insertExpense).returning();
     return expense;
+  }
+
+  // ===== سجل النشاط =====
+  async getActivityLogs(filters?: { userId?: string; action?: string; entityType?: string }): Promise<ActivityLog[]> {
+    let query = db.select().from(activityLogs);
+    
+    const conditions = [];
+    if (filters?.userId) {
+      conditions.push(eq(activityLogs.userId, filters.userId));
+    }
+    if (filters?.action) {
+      conditions.push(eq(activityLogs.action, filters.action));
+    }
+    if (filters?.entityType) {
+      conditions.push(eq(activityLogs.entityType, filters.entityType));
+    }
+    
+    if (conditions.length > 0) {
+      return db.select().from(activityLogs)
+        .where(and(...conditions))
+        .orderBy(desc(activityLogs.createdAt));
+    }
+    
+    return db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt));
+  }
+
+  async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
+    const [log] = await db.insert(activityLogs).values(insertLog).returning();
+    return log;
   }
 
   async getDashboardStats() {

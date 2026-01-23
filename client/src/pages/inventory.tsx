@@ -107,7 +107,7 @@ export default function InventoryPage() {
 
   const addMutation = useMutation({
     mutationFn: async (data: MaterialForm) => {
-      const res = await apiRequest("POST", "/api/materials", data);
+      const res = await apiRequest("POST", "/api/materials", { ...data, currentUser: user });
       return res.json();
     },
     onSuccess: () => {
@@ -127,6 +127,7 @@ export default function InventoryPage() {
       return apiRequest("POST", "/api/inventory-movements", {
         ...data,
         materialId: selectedMaterial?.id,
+        currentUser: user,
       });
     },
     onSuccess: () => {
@@ -146,6 +147,7 @@ export default function InventoryPage() {
     mutationFn: async (materialId: string) => {
       return apiRequest("DELETE", `/api/materials/${materialId}`, {
         userRole: user?.role,
+        currentUser: user,
       });
     },
     onSuccess: () => {

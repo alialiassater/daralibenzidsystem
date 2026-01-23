@@ -209,9 +209,12 @@ function BookCard({ book, onViewBarcode, onEditQuantity, onEditBook, onDeleteBoo
           <Badge className={statusInfo.className} variant="secondary">
             {statusInfo.label}
           </Badge>
-          <Badge variant="outline" className="bg-primary/5 text-primary font-bold border-primary/20">
+        </div>
+        <div className="bg-green-500/10 dark:bg-green-500/20 p-2 rounded-lg border border-green-500/20 flex items-center justify-between">
+          <span className="text-xs text-green-600 dark:text-green-400 font-medium">سعر البيع</span>
+          <span className="text-lg font-bold text-green-700 dark:text-green-400">
             {Number(book.price || 0).toLocaleString()} د.ج
-          </Badge>
+          </span>
         </div>
         <div className="grid grid-cols-3 gap-1 text-xs text-center">
           <div className="bg-muted rounded p-1">

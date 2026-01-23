@@ -27,11 +27,15 @@ export default function PricingCalculatorPage() {
   const [pageCount, setPageCount] = useState<number>(0);
   const [copies, setCopies] = useState<number>(0);
   const [paperSize, setPaperSize] = useState<string>("A4");
+  const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
+  const [discountValue, setDiscountValue] = useState<number>(0);
 
   const [results, setResults] = useState({
     paperCost: 0,
     coverCost: 0,
-    totalCost: 0,
+    originalTotal: 0,
+    discountAmount: 0,
+    finalTotal: 0,
   });
 
   const { data: savedCalcs, isLoading: isLoadingCalcs } = useQuery<SavedCalculation[]>({
@@ -72,14 +76,30 @@ export default function PricingCalculatorPage() {
     // المعادلة المعتمدة: (سعر الورقة × عدد الأوراق × عدد النسخ) + (سعر الغلاف × عدد النسخ)
     const paperTotalCost = paperPrice * Number(pageCount) * Number(copies);
     const coverTotalCost = coverPrice * Number(copies);
-    const totalCost = paperTotalCost + coverTotalCost;
+    const originalTotal = paperTotalCost + coverTotalCost;
+
+    let discountAmount = 0;
+    if (isAdmin) {
+      if (discountType === "percent") {
+        discountAmount = (originalTotal * Number(discountValue)) / 100;
+      } else {
+        discountAmount = Number(discountValue);
+      }
+      // منع الخصم إذا كان أكبر من السعر الأصلي
+      if (discountAmount > originalTotal) discountAmount = originalTotal;
+      if (discountAmount < 0) discountAmount = 0;
+    }
+
+    const finalTotal = originalTotal - discountAmount;
 
     setResults({
       paperCost: paperTotalCost,
       coverCost: coverTotalCost,
-      totalCost,
+      originalTotal,
+      discountAmount,
+      finalTotal,
     });
-  }, [pageCount, copies, paperSize]);
+  }, [pageCount, copies, paperSize, discountType, discountValue, isAdmin]);
 
   const handleSave = () => {
     if (!isAdmin) {
@@ -89,14 +109,18 @@ export default function PricingCalculatorPage() {
 
     saveMutation.mutate({
       userId: user?.id,
-      totalPrice: results.totalCost.toString(),
+      totalPrice: results.finalTotal.toString(),
       paperSize,
       pageCount,
       copyCount: copies,
       details: JSON.stringify({
         paperCost: results.paperCost,
         coverCost: results.coverCost,
-        totalCost: results.totalCost,
+        originalTotal: results.originalTotal,
+        discountAmount: results.discountAmount,
+        discountType,
+        discountValue,
+        finalTotal: results.finalTotal,
       })
     });
   };
@@ -171,6 +195,35 @@ export default function PricingCalculatorPage() {
                 <span className="font-bold">{PAPER_SIZES.find(s => s.value === paperSize)?.coverPrice} دج</span>
               </div>
             </div>
+
+            {isAdmin && (
+              <div className="space-y-4 pt-4 border-t">
+                <Label className="text-sm font-bold flex items-center gap-2 text-primary">
+                  <Banknote className="h-4 w-4" />
+                  إضافة خصم (للمدير فقط)
+                </Label>
+                <div className="flex gap-2">
+                  <Select value={discountType} onValueChange={(v: any) => setDiscountType(v)}>
+                    <SelectTrigger className="w-[120px] h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="amount">مبلغ (دج)</SelectItem>
+                      <SelectItem value="percent">نسبة (%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input 
+                    type="number"
+                    min="0"
+                    value={discountValue || ''}
+                    onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
+                    placeholder="0"
+                    className="h-10 flex-1"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground italic">يتم تطبيق الخصم على السعر الإجمالي النهائي.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -184,7 +237,7 @@ export default function PricingCalculatorPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
-              <div className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm">
+            <div className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm">
                 <div className="flex items-center gap-2">
                   <Printer className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium">تكلفة الأوراق:</span>
@@ -200,14 +253,28 @@ export default function PricingCalculatorPage() {
                 <span className="font-bold text-lg">{Math.round(results.coverCost).toLocaleString()} دج</span>
               </div>
 
+              {results.originalTotal > 0 && (
+                <div className="flex justify-between items-center p-3 bg-muted/20 rounded-lg border border-dashed">
+                  <span className="text-sm font-medium text-muted-foreground">السعر الأصلي:</span>
+                  <span className="font-bold text-muted-foreground">{Math.round(results.originalTotal).toLocaleString()} دج</span>
+                </div>
+              )}
+
+              {results.discountAmount > 0 && (
+                <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400">
+                  <span className="text-sm font-medium">قيمة الخصم:</span>
+                  <span className="font-bold">-{Math.round(results.discountAmount).toLocaleString()} دج</span>
+                </div>
+              )}
+
               <div className="mt-8 p-6 bg-primary text-primary-foreground rounded-xl shadow-lg border-2 border-primary-foreground/20 overflow-hidden relative">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <Banknote className="h-20 w-20" />
                 </div>
                 <div className="relative z-10 text-center">
-                  <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر الإجمالي النهائي</span>
+                  <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر النهائي بعد الخصم</span>
                   <div className="flex flex-col items-center mt-2">
-                    <span className="text-4xl font-black">{Math.round(results.totalCost).toLocaleString()}</span>
+                    <span className="text-4xl font-black">{Math.round(results.finalTotal).toLocaleString()}</span>
                     <span className="text-sm font-medium mt-1 opacity-90">دينار جزائري</span>
                   </div>
                 </div>
@@ -217,7 +284,7 @@ export default function PricingCalculatorPage() {
                 <Button 
                   onClick={handleSave} 
                   className="w-full mt-6 bg-green-600 hover:bg-green-700 h-11"
-                  disabled={saveMutation.isPending || results.totalCost === 0}
+                  disabled={saveMutation.isPending || results.finalTotal === 0}
                 >
                   {saveMutation.isPending ? (
                     <Loader2 className="h-5 w-5 animate-spin ml-2" />

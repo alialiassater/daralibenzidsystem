@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeGenerator } from "@/components/barcode-generator";
-import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image, Edit2, Package, Trash2, Pencil } from "lucide-react";
+import { BarcodeScanner } from "@/components/barcode-scanner";
+import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image, Edit2, Package, Trash2, Pencil, Printer } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Book } from "@shared/schema";
@@ -67,7 +68,6 @@ const quantitySchema = z.object({
 
 type QuantityForm = z.infer<typeof quantitySchema>;
 
-// مخطط تعديل بيانات الكتاب الكاملة
 const editBookSchema = z.object({
   title: z.string().min(1, "اسم الكتاب مطلوب"),
   author: z.string().min(1, "اسم المؤلف مطلوب"),
@@ -318,7 +318,6 @@ export default function BooksPage() {
     },
   });
 
-  // نموذج تعديل بيانات الكتاب الكاملة
   const editForm = useForm<EditBookForm>({
     resolver: zodResolver(editBookSchema),
     defaultValues: {
@@ -366,7 +365,6 @@ export default function BooksPage() {
     },
   });
 
-  // mutation لتحديث بيانات الكتاب الكاملة
   const updateBookMutation = useMutation({
     mutationFn: async ({ bookId, data }: { bookId: string; data: EditBookForm }) => {
       const response = await fetch(`/api/books/${bookId}`, {
@@ -393,7 +391,6 @@ export default function BooksPage() {
     },
   });
 
-  // mutation لحذف الكتاب
   const deleteBookMutation = useMutation({
     mutationFn: async (bookId: string) => {
       const response = await fetch(`/api/books/${bookId}`, {
@@ -435,7 +432,6 @@ export default function BooksPage() {
     setIsQuantityOpen(true);
   };
 
-  // فتح نافذة تعديل بيانات الكتاب الكاملة
   const handleEditBook = (book: Book) => {
     setSelectedBook(book);
     editForm.reset({
@@ -451,9 +447,18 @@ export default function BooksPage() {
     setIsEditOpen(true);
   };
 
-  // حذف الكتاب
   const handleDeleteBook = (book: Book) => {
     deleteBookMutation.mutate(book.id);
+  };
+
+  const handleBarcodeScan = (barcode: string) => {
+    const book = books?.find(b => b.isbn === barcode || b.barcode === barcode);
+    if (book) {
+      setSearchQuery(barcode);
+      toast({ title: "تم العثور على الكتاب" });
+    } else {
+      toast({ title: "الكتاب غير موجود", variant: "destructive" });
+    }
   };
 
   const filteredBooks = books?.filter((b) => {
@@ -483,54 +488,29 @@ export default function BooksPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-page-title">إدارة الكتب</h1>
           <p className="text-muted-foreground mt-1">إدارة كتب دار النشر مع دعم الباركود وصور الأغلفة</p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-book">
-              <Plus className="h-4 w-4 ml-2" />
-              إضافة كتاب
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>إضافة كتاب جديد</DialogTitle>
-            </DialogHeader>
-            <Form {...addForm}>
-              <form onSubmit={addForm.handleSubmit((data) => addMutation.mutate(data))} className="space-y-4">
-                <FormField
-                  control={addForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>اسم الكتاب</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-book-title" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="author"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>المؤلف</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-book-author" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <BarcodeScanner onScan={handleBarcodeScan} placeholder="امسح ISBN الكتاب" />
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-book">
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة كتاب
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>إضافة كتاب جديد</DialogTitle>
+              </DialogHeader>
+              <Form {...addForm}>
+                <form onSubmit={addForm.handleSubmit((data) => addMutation.mutate(data))} className="space-y-4">
                   <FormField
                     control={addForm.control}
-                    name="isbn"
+                    name="title"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>رقم ISBN</FormLabel>
+                        <FormLabel>اسم الكتاب</FormLabel>
                         <FormControl>
-                          <Input {...field} data-testid="input-book-isbn" />
+                          <Input {...field} data-testid="input-book-title" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -538,203 +518,215 @@ export default function BooksPage() {
                   />
                   <FormField
                     control={addForm.control}
-                    name="category"
+                    name="author"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>الصنف</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>المؤلف</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-book-author" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="isbn"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>رقم ISBN (سيستخدم كباركود)</FormLabel>
                           <FormControl>
-                            <SelectTrigger data-testid="select-book-category">
-                              <SelectValue placeholder="اختر الصنف" />
-                            </SelectTrigger>
+                            <Input {...field} data-testid="input-book-isbn" placeholder="مثلاً: 9789947000000" />
                           </FormControl>
-                          <SelectContent>
-                            {BOOK_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat.value} value={cat.value}>
-                                {cat.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-4">
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>الصنف</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-book-category">
+                                <SelectValue placeholder="اختر الصنف" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {BOOK_CATEGORIES.map((cat) => (
+                                <SelectItem key={cat.value} value={cat.value}>
+                                  {cat.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="totalQuantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>الكمية الإجمالية</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} data-testid="input-book-total" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="readyQuantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>الجاهزة</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} data-testid="input-book-ready" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="printingQuantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>قيد الطباعة</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} data-testid="input-book-printing" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={addForm.control}
-                    name="totalQuantity"
+                    name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>الكمية الإجمالية</FormLabel>
+                        <FormLabel>السعر (د.ج)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} data-testid="input-book-total" />
+                          <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={addForm.control}
-                    name="readyQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>الكمية الجاهزة</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} data-testid="input-book-ready" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={addMutation.isPending}
+                    data-testid="button-submit-book"
+                  >
+                    {addMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "إضافة الكتاب"
                     )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="printingQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>قيد الطباعة</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} data-testid="input-book-printing" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={addForm.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>السعر (د.ج)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} data-testid="input-book-price" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={addMutation.isPending} data-testid="button-submit-book">
-                  {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-md bg-primary/10">
-                <BookOpen className="h-6 w-6 text-primary" />
+            <div className="flex items-center gap-2">
+              <div className="bg-primary/10 p-2 rounded">
+                <Package className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalBooks}</p>
-                <p className="text-sm text-muted-foreground">إجمالي الكتب</p>
+                <p className="text-sm font-medium text-muted-foreground">عدد الكتب</p>
+                <h3 className="text-2xl font-bold">{totalBooks}</h3>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-md bg-accent">
-                <Package className="h-6 w-6 text-primary" />
+            <div className="flex items-center gap-2">
+              <div className="bg-green-500/10 p-2 rounded">
+                <TrendingUp className="h-4 w-4 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalQuantity}</p>
-                <p className="text-sm text-muted-foreground">الكمية الإجمالية</p>
+                <p className="text-sm font-medium text-muted-foreground">إجمالي النسخ</p>
+                <h3 className="text-2xl font-bold">{totalQuantity}</h3>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-md bg-green-500/10">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-500/10 p-2 rounded">
+                <BookOpen className="h-4 w-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalReady}</p>
-                <p className="text-sm text-muted-foreground">نسخ جاهزة</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-md bg-muted">
-                <Image className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{books?.filter(b => b.coverImage).length || 0}</p>
-                <p className="text-sm text-muted-foreground">كتب بأغلفة</p>
+                <p className="text-sm font-medium text-muted-foreground">النسخ الجاهزة</p>
+                <h3 className="text-2xl font-bold">{totalReady}</h3>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            الكتب المنشورة
-          </CardTitle>
-          <div className="flex flex-col sm:flex-row gap-4 mt-4">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="بحث بالاسم، المؤلف، أو الباركود..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-10"
-                data-testid="input-search-book"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-48" data-testid="select-filter-category">
-                <SelectValue placeholder="جميع الأصناف" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">جميع الأصناف</SelectItem>
-                {BOOK_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="البحث عن كتاب بالاسم، المؤلف، ISBN أو الباركود..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-10"
+            data-testid="input-search-books"
+          />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="select-filter-category">
+            <SelectValue placeholder="تصفية حسب الصنف" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">كل الأصناف</SelectItem>
+            {BOOK_CATEGORIES.map((cat) => (
+              <SelectItem key={cat.value} value={cat.value}>
+                {cat.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredBooks?.map((book) => (
+          <BookCard 
+            key={book.id} 
+            book={book} 
+            onViewBarcode={handleViewBarcode}
+            onEditQuantity={handleEditQuantity}
+            onEditBook={handleEditBook}
+            onDeleteBook={handleDeleteBook}
+            isAdmin={isAdmin}
+          />
+        ))}
+        {filteredBooks?.length === 0 && (
+          <div className="col-span-full text-center py-12 bg-muted/20 rounded-lg border-2 border-dashed">
+            <p className="text-muted-foreground">لا توجد كتب تطابق البحث</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {filteredBooks?.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <BookOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">لا توجد كتب</p>
-              <p className="text-sm">ابدأ بإضافة كتاب جديد</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredBooks?.map((book) => (
-                <BookCard 
-                  key={book.id} 
-                  book={book} 
-                  onViewBarcode={handleViewBarcode} 
-                  onEditQuantity={handleEditQuantity}
-                  onEditBook={handleEditBook}
-                  onDeleteBook={handleDeleteBook}
-                  isAdmin={isAdmin}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       <Dialog open={isBarcodeOpen} onOpenChange={setIsBarcodeOpen}>
         <DialogContent>
@@ -743,9 +735,42 @@ export default function BooksPage() {
           </DialogHeader>
           {selectedBook && (
             <div className="space-y-4">
-              <p className="text-center font-medium">{selectedBook.title}</p>
-              <p className="text-center text-sm text-muted-foreground">ISBN: {selectedBook.isbn}</p>
-              <BarcodeGenerator value={selectedBook.barcode} />
+              <div id="barcode-print-area" className="flex flex-col items-center p-4 bg-white">
+                <p className="text-center font-bold text-black mb-2">{selectedBook.title}</p>
+                <BarcodeGenerator value={selectedBook.barcode} />
+                <p className="text-center text-xs text-black mt-1">ISBN: {selectedBook.isbn}</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  const content = document.getElementById("barcode-print-area");
+                  if (content) {
+                    const printWindow = window.open('', '_blank');
+                    printWindow?.document.write(`
+                      <html>
+                        <head>
+                          <title>طباعة باركود - ${selectedBook.title}</title>
+                          <style>
+                            body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
+                            @media print { body { height: auto; } }
+                          </style>
+                        </head>
+                        <body>${content.innerHTML}</body>
+                      </html>
+                    `);
+                    printWindow?.document.close();
+                    printWindow?.focus();
+                    setTimeout(() => {
+                      printWindow?.print();
+                      printWindow?.close();
+                    }, 250);
+                  }
+                }} 
+                className="w-full"
+                variant="outline"
+              >
+                <Printer className="h-4 w-4 ml-2" />
+                طباعة الباركود
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -756,88 +781,77 @@ export default function BooksPage() {
           <DialogHeader>
             <DialogTitle>تحديث كميات الكتاب</DialogTitle>
           </DialogHeader>
-          {selectedBook && (
-            <Form {...quantityForm}>
-              <form
-                onSubmit={quantityForm.handleSubmit((data) =>
-                  updateQuantityMutation.mutate({ bookId: selectedBook.id, data })
+          <Form {...quantityForm}>
+            <form onSubmit={quantityForm.handleSubmit((data) => {
+              if (selectedBook) {
+                updateQuantityMutation.mutate({ bookId: selectedBook.id, data });
+              }
+            })} className="space-y-4">
+              <FormField
+                control={quantityForm.control}
+                name="totalQuantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الكمية الإجمالية</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-                className="space-y-4"
+              />
+              <FormField
+                control={quantityForm.control}
+                name="readyQuantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الكمية الجاهزة</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={quantityForm.control}
+                name="printingQuantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الكمية قيد الطباعة</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={updateQuantityMutation.isPending}
               >
-                <p className="font-medium text-center">{selectedBook.title}</p>
-                <FormField
-                  control={quantityForm.control}
-                  name="totalQuantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>الكمية الإجمالية</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} data-testid="input-edit-total" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={quantityForm.control}
-                    name="readyQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>الكمية الجاهزة</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} data-testid="input-edit-ready" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={quantityForm.control}
-                    name="printingQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>قيد الطباعة</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} data-testid="input-edit-printing" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={updateQuantityMutation.isPending}
-                  data-testid="button-submit-quantity"
-                >
-                  {updateQuantityMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "تحديث الكميات"
-                  )}
-                </Button>
-              </form>
-            </Form>
-          )}
+                {updateQuantityMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "تحديث"
+                )}
+              </Button>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
-      {/* نافذة تعديل بيانات الكتاب الكاملة */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>تعديل بيانات الكتاب</DialogTitle>
           </DialogHeader>
           {selectedBook && (
             <Form {...editForm}>
-              <form
-                onSubmit={editForm.handleSubmit((data) =>
-                  updateBookMutation.mutate({ bookId: selectedBook.id, data })
-                )}
-                className="space-y-4"
-              >
+              <form onSubmit={editForm.handleSubmit((data) => {
+                updateBookMutation.mutate({ bookId: selectedBook.id, data });
+              })} className="space-y-4">
                 <FormField
                   control={editForm.control}
                   name="title"
@@ -884,7 +898,7 @@ export default function BooksPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>الصنف</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-edit-book-category">
                               <SelectValue placeholder="اختر الصنف" />

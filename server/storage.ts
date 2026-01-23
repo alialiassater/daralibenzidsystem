@@ -84,10 +84,6 @@ function generateBarcode(): string {
   return `MAT${Date.now()}${Math.floor(Math.random() * 1000)}`;
 }
 
-function generateBookBarcode(): string {
-  return `BOOK${Date.now()}${Math.floor(Math.random() * 1000)}`;
-}
-
 // حساب حالة الكتاب تلقائياً حسب الكميات
 function calculateBookStatus(readyQuantity: number, printingQuantity: number): string {
   if (readyQuantity > 0) {
@@ -238,7 +234,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBook(insertBook: InsertBook): Promise<Book> {
-    const barcode = generateBookBarcode();
+    const barcode = insertBook.isbn; // استخدام ISBN كباركود
     const status = calculateBookStatus(
       insertBook.readyQuantity || 0,
       insertBook.printingQuantity || 0
@@ -278,6 +274,11 @@ export class DatabaseStorage implements IStorage {
   async updateBook(id: string, updates: UpdateBook): Promise<Book> {
     const updateData: Record<string, any> = { ...updates };
     
+    // إذا تم تحديث ISBN، نحدث الباركود أيضاً ليتطابق معه
+    if (updates.isbn) {
+      updateData.barcode = updates.isbn;
+    }
+
     // حساب الحالة تلقائياً إذا تم تغيير الكميات
     if (updates.readyQuantity !== undefined || updates.printingQuantity !== undefined) {
       const book = await this.getBook(id);

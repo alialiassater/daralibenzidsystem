@@ -14,11 +14,9 @@ import { ar } from "date-fns/locale";
 import type { SavedCalculation } from "@shared/schema";
 
 const PAPER_SIZES = [
-  { label: "A4", value: "A4", multiplier: 1 },
-  { label: "A5", value: "A5", multiplier: 0.7 },
-  { label: "A3", value: "A3", multiplier: 2 },
-  { label: "B5", value: "B5", multiplier: 0.85 },
-  { label: "مخصص (Custom)", value: "custom", multiplier: 1 },
+  { label: "A4", value: "A4", paperPrice: 5.85, coverPrice: 80 },
+  { label: "A3", value: "A3", paperPrice: 12, coverPrice: 150 },
+  { label: "A5", value: "A5", paperPrice: 3.25, coverPrice: 150 },
 ];
 
 export default function PricingCalculatorPage() {
@@ -26,18 +24,13 @@ export default function PricingCalculatorPage() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const [paperPrice, setPaperPrice] = useState<number>(0);
   const [pageCount, setPageCount] = useState<number>(0);
   const [copies, setCopies] = useState<number>(0);
   const [paperSize, setPaperSize] = useState<string>("A4");
-  const [customMultiplier, setCustomMultiplier] = useState<number>(1);
-  const [inkPrice, setInkPrice] = useState<number>(3500);
-  const [extraCosts, setExtraCosts] = useState<number>(0);
 
   const [results, setResults] = useState({
-    inkCartridges: 0,
     paperCost: 0,
-    inkCost: 0,
+    coverCost: 0,
     totalCost: 0,
   });
 
@@ -61,31 +54,32 @@ export default function PricingCalculatorPage() {
 
   useEffect(() => {
     // التحقق من القيم قبل الحساب
-    if (pageCount <= 0 || copies <= 0 || paperPrice <= 0) {
+    if (pageCount <= 0 || copies <= 0) {
       setResults({
-        inkCartridges: 0,
         paperCost: 0,
-        inkCost: 0,
+        coverCost: 0,
         totalCost: 0,
       });
       return;
     }
 
     const selectedSize = PAPER_SIZES.find(s => s.value === paperSize);
-    const multiplier = paperSize === "custom" ? Number(customMultiplier) : (selectedSize?.multiplier || 1);
+    if (!selectedSize) return;
+
+    const paperPrice = selectedSize.paperPrice;
+    const coverPrice = selectedSize.coverPrice;
     
-    const totalPages = Number(pageCount) * Number(copies);
-    const inkCost = totalPages > 0 ? Number(inkPrice) : 0; // علبة واحدة إذا كان هناك صفحات
-    const paperCost = totalPages * Number(paperPrice) * multiplier;
-    const totalCost = paperCost + inkCost + Number(extraCosts);
+    // المعادلة المعتمدة: (سعر الورقة × عدد الأوراق × عدد النسخ) + (سعر الغلاف × عدد النسخ)
+    const paperTotalCost = paperPrice * Number(pageCount) * Number(copies);
+    const coverTotalCost = coverPrice * Number(copies);
+    const totalCost = paperTotalCost + coverTotalCost;
 
     setResults({
-      inkCartridges: totalPages > 0 ? 1 : 0,
-      paperCost,
-      inkCost,
+      paperCost: paperTotalCost,
+      coverCost: coverTotalCost,
       totalCost,
     });
-  }, [paperPrice, pageCount, copies, paperSize, customMultiplier, inkPrice, extraCosts]);
+  }, [pageCount, copies, paperSize]);
 
   const handleSave = () => {
     if (!isAdmin) {
@@ -100,13 +94,9 @@ export default function PricingCalculatorPage() {
       pageCount,
       copyCount: copies,
       details: JSON.stringify({
-        paperPrice,
-        multiplier: paperSize === "custom" ? customMultiplier : PAPER_SIZES.find(s => s.value === paperSize)?.multiplier,
-        inkPrice,
-        extraCosts,
-        inkCartridges: results.inkCartridges,
         paperCost: results.paperCost,
-        inkCost: results.inkCost,
+        coverCost: results.coverCost,
+        totalCost: results.totalCost,
       })
     });
   };
@@ -117,7 +107,7 @@ export default function PricingCalculatorPage() {
         <Calculator className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">حساب تكلفة الطباعة</h1>
-          <p className="text-muted-foreground text-sm">أداة مستقلة لحساب تكاليف إنتاج الكتب والمنشورات</p>
+          <p className="text-muted-foreground text-sm">حساب فوري حسب أسعار المطبعة المعتمدة</p>
         </div>
       </div>
 
@@ -127,50 +117,24 @@ export default function PricingCalculatorPage() {
           <CardHeader className="pb-3 border-b mb-4">
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              بيانات الطباعة
+              بيانات العمل
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm">سعر الورقة (د.ج)</Label>
-                <Input 
-                  type="number" 
-                  step="0.01" 
-                  value={paperPrice || ''} 
-                  onChange={(e) => setPaperPrice(Number(e.target.value))}
-                  placeholder="0.00"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm">حجم الورق</Label>
-                <Select value={paperSize} onValueChange={setPaperSize}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAPER_SIZES.map(size => (
-                      <SelectItem key={size.value} value={size.value}>{size.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-sm">حجم الورق</Label>
+              <Select value={paperSize} onValueChange={setPaperSize}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAPER_SIZES.map(size => (
+                    <SelectItem key={size.value} value={size.value}>{size.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {paperSize === "custom" && (
-              <div className="space-y-2">
-                <Label className="text-sm">معامل الحجم المخصص</Label>
-                <Input 
-                  type="number" 
-                  step="0.1" 
-                  value={customMultiplier} 
-                  onChange={(e) => setCustomMultiplier(Number(e.target.value))}
-                  className="h-9"
-                />
-              </div>
-            )}
-            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm">عدد الصفحات</Label>
@@ -180,7 +144,7 @@ export default function PricingCalculatorPage() {
                   value={pageCount || ''} 
                   onChange={(e) => setPageCount(Math.max(0, Number(e.target.value)))}
                   placeholder="0"
-                  className="h-9"
+                  className="h-10"
                 />
               </div>
               <div className="space-y-2">
@@ -191,90 +155,60 @@ export default function PricingCalculatorPage() {
                   value={copies || ''} 
                   onChange={(e) => setCopies(Math.max(0, Number(e.target.value)))}
                   placeholder="0"
-                  className="h-9"
+                  className="h-10"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed">
-              <div className="space-y-2">
-                <Label className="text-sm">سعر علبة الحبر (د.ج)</Label>
-                <Input 
-                  type="number" 
-                  value={inkPrice} 
-                  onChange={(e) => setInkPrice(Number(e.target.value))}
-                  className="h-9"
-                />
-                <p className="text-[10px] text-muted-foreground font-medium">يتم حساب تكلفة علبة واحدة فقط</p>
+            <div className="p-3 bg-muted/30 rounded-lg border border-dashed space-y-2 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">الأسعار المعتمدة للحجم المختار:</p>
+              <div className="flex justify-between">
+                <span>سعر الورقة (شامل الحبر):</span>
+                <span className="font-bold">{PAPER_SIZES.find(s => s.value === paperSize)?.paperPrice} دج</span>
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm">صفحات/علبة حبر (معلومة)</Label>
-                <div className="h-9 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm text-muted-foreground select-none">
-                  حوالي 2000 صفحة
-                </div>
-                <p className="text-[10px] text-muted-foreground italic">هذه معلومة تقريبية ولا تدخل في حساب السعر</p>
+              <div className="flex justify-between">
+                <span>سعر الغلاف (لكل نسخة):</span>
+                <span className="font-bold">{PAPER_SIZES.find(s => s.value === paperSize)?.coverPrice} دج</span>
               </div>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t border-dashed">
-              <Label className="text-sm">تكاليف إضافية (د.ج)</Label>
-              <Input 
-                type="number" 
-                value={extraCosts || ''} 
-                onChange={(e) => setExtraCosts(Number(e.target.value))}
-                placeholder="0.00"
-                className="h-9"
-              />
             </div>
           </CardContent>
         </Card>
 
         {/* Results Card */}
         <div className="space-y-4">
-          <Card className="bg-primary/5 border-primary/20 shadow-none">
+          <Card className="bg-primary/5 border-primary/20 shadow-none h-full">
             <CardHeader className="pb-2 border-b border-primary/10 mb-2">
               <CardTitle className="text-base text-primary flex items-center gap-2">
                 <Calculator className="h-4 w-4" />
-                نتائج الحساب
+                ملخص السعر
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 pt-2">
+            <CardContent className="space-y-4 pt-4">
               <div className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm">
                 <div className="flex items-center gap-2">
-                  <Droplets className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium">علب الحبر:</span>
+                  <Printer className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">تكلفة الأوراق:</span>
                 </div>
-                <div className="text-left">
-                  <span className="font-bold text-lg">{results.inkCartridges} علبة</span>
-                  <p className="text-[10px] text-muted-foreground">تكلفة ثابتة للعمل بالكامل</p>
-                </div>
+                <span className="font-bold text-lg">{Math.round(results.paperCost).toLocaleString()} دج</span>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm">
                 <div className="flex items-center gap-2">
-                  <Printer className="h-4 w-4 text-green-500" />
-                  <span className="text-sm font-medium">تكلفة الورق:</span>
+                  <FileText className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium">تكلفة الأغلفة:</span>
                 </div>
-                <span className="font-bold text-lg">{Math.round(results.paperCost).toLocaleString()} د.ج</span>
+                <span className="font-bold text-lg">{Math.round(results.coverCost).toLocaleString()} دج</span>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm">
-                <div className="flex items-center gap-2">
-                  <Droplets className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium">تكلفة الحبر:</span>
-                </div>
-                <span className="font-bold text-lg">{results.inkCost.toLocaleString()} د.ج</span>
-              </div>
-
-              <div className="mt-6 p-4 bg-primary text-primary-foreground rounded-xl shadow-lg border-2 border-primary-foreground/20 overflow-hidden relative">
+              <div className="mt-8 p-6 bg-primary text-primary-foreground rounded-xl shadow-lg border-2 border-primary-foreground/20 overflow-hidden relative">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Banknote className="h-16 w-16" />
+                  <Banknote className="h-20 w-20" />
                 </div>
-                <div className="relative z-10">
+                <div className="relative z-10 text-center">
                   <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر الإجمالي النهائي</span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-3xl font-black">{Math.round(results.totalCost).toLocaleString()}</span>
-                    <span className="text-sm font-medium opacity-90">دينار جزائري</span>
+                  <div className="flex flex-col items-center mt-2">
+                    <span className="text-4xl font-black">{Math.round(results.totalCost).toLocaleString()}</span>
+                    <span className="text-sm font-medium mt-1 opacity-90">دينار جزائري</span>
                   </div>
                 </div>
               </div>
@@ -282,15 +216,15 @@ export default function PricingCalculatorPage() {
               {isAdmin && (
                 <Button 
                   onClick={handleSave} 
-                  className="w-full mt-4 bg-green-600 hover:bg-green-700"
-                  disabled={saveMutation.isPending}
+                  className="w-full mt-6 bg-green-600 hover:bg-green-700 h-11"
+                  disabled={saveMutation.isPending || results.totalCost === 0}
                 >
                   {saveMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                    <Loader2 className="h-5 w-5 animate-spin ml-2" />
                   ) : (
-                    <Save className="h-4 w-4 ml-2" />
+                    <Save className="h-5 w-5 ml-2" />
                   )}
-                  حفظ السعر
+                  حفظ الحساب في السجل
                 </Button>
               )}
             </CardContent>
@@ -303,7 +237,7 @@ export default function PricingCalculatorPage() {
         <CardHeader className="border-b">
           <CardTitle className="text-lg flex items-center gap-2">
             <History className="h-5 w-5 text-muted-foreground" />
-            الأسعار المحفوظة
+            سجل الحسابات الأخيرة
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -312,10 +246,10 @@ export default function PricingCalculatorPage() {
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="pb-3 pr-2">التاريخ</th>
-                  <th className="pb-3 pr-2">حجم الورق</th>
-                  <th className="pb-3 pr-2">عدد الصفحات</th>
+                  <th className="pb-3 pr-2">الحجم</th>
+                  <th className="pb-3 pr-2">الصفحات</th>
                   <th className="pb-3 pr-2">النسخ</th>
-                  <th className="pb-3 pr-2 text-left">السعر الإجمالي</th>
+                  <th className="pb-3 pr-2 text-left">السعر</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -328,14 +262,14 @@ export default function PricingCalculatorPage() {
                     <td className="py-3 pr-2">{calc.pageCount}</td>
                     <td className="py-3 pr-2">{calc.copyCount}</td>
                     <td className="py-3 pr-2 text-left font-bold text-primary">
-                      {Number(calc.totalPrice).toLocaleString()} د.ج
+                      {Number(calc.totalPrice).toLocaleString()} دج
                     </td>
                   </tr>
                 ))}
                 {!isLoadingCalcs && (!savedCalcs || savedCalcs.length === 0) && (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-muted-foreground italic">
-                      لا توجد حسابات محفوظة بعد
+                      لا توجد حسابات محفوظة
                     </td>
                   </tr>
                 )}

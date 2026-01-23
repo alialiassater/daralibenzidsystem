@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Calculator, Printer, Droplets, Banknote, FileText, Save, History, Loader2 } from "lucide-react";
+import { Calculator, Printer, Droplets, Banknote, FileText, Save, History, Loader2, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,6 +27,7 @@ export default function PricingCalculatorPage() {
   const [pageCount, setPageCount] = useState<number>(0);
   const [copies, setCopies] = useState<number>(0);
   const [bookTitle, setBookTitle] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [paperSize, setPaperSize] = useState<string>("A4");
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -103,6 +104,10 @@ export default function PricingCalculatorPage() {
       finalTotal,
     });
   }, [pageCount, copies, paperSize, discountType, discountValue, isAdmin]);
+
+  const filteredCalcs = savedCalcs?.filter(calc => 
+    calc.bookTitle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleSave = () => {
     if (!isAdmin) {
@@ -333,11 +338,22 @@ export default function PricingCalculatorPage() {
 
       {/* Saved Calculations */}
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <History className="h-5 w-5 text-muted-foreground" />
-            سجل الحسابات الأخيرة
-          </CardTitle>
+        <CardHeader className="border-b space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-5 w-5 text-muted-foreground" />
+              سجل الحسابات الأخيرة
+            </CardTitle>
+            <div className="relative w-full md:w-64">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="ابحث باسم الكتاب..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pr-9 h-9 text-sm"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="overflow-x-auto">
@@ -353,7 +369,7 @@ export default function PricingCalculatorPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {savedCalcs?.map((calc) => (
+                {filteredCalcs?.map((calc) => (
                   <tr key={calc.id} className="hover:bg-muted/50 transition-colors">
                     <td className="py-3 pr-2 font-medium">{calc.bookTitle}</td>
                     <td className="py-3 pr-2">{calc.paperSize}</td>

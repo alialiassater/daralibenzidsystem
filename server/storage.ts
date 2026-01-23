@@ -57,6 +57,7 @@ export interface IStorage {
     totalExpenses: number;
     readyBooksCount: number;
     readyBooksQuantity: number;
+    readyBooksList: Array<{ id: string; title: string; readyQuantity: number }>;
     lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
     recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
   }>;
@@ -264,6 +265,10 @@ export class DatabaseStorage implements IStorage {
       .filter(e => e.createdAt && new Date(e.createdAt) >= startOfMonth)
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
+    // ترتيب الكتب الجاهزة حسب الكمية تنازلياً
+    const sortedReadyBooks = readyBooks
+      .sort((a, b) => (b.readyQuantity || 0) - (a.readyQuantity || 0));
+
     return {
       totalMaterials: allMaterials.length,
       lowStockCount: lowStockItems.length,
@@ -274,6 +279,11 @@ export class DatabaseStorage implements IStorage {
       totalExpenses,
       readyBooksCount,
       readyBooksQuantity,
+      readyBooksList: sortedReadyBooks.map(b => ({
+        id: b.id,
+        title: b.title,
+        readyQuantity: b.readyQuantity || 0,
+      })),
       lowStockItems: lowStockItems.slice(0, 5).map(m => ({
         id: m.id,
         name: m.name,

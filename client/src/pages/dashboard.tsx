@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Printer, BookOpen, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Package, Printer, BookOpen, AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface DashboardStats {
@@ -15,6 +18,7 @@ interface DashboardStats {
   totalExpenses: number;
   readyBooksCount: number;
   readyBooksQuantity: number;
+  readyBooksList: Array<{ id: string; title: string; readyQuantity: number }>;
   lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
   recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
 }
@@ -63,6 +67,9 @@ function LoadingSkeleton() {
 }
 
 export default function DashboardPage() {
+  const [, navigate] = useLocation();
+  const [isReadyBooksExpanded, setIsReadyBooksExpanded] = useState(false);
+  
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
@@ -109,12 +116,61 @@ export default function DashboardPage() {
           icon={BookOpen}
           description={`${stats?.totalPrintedCopies || 0} نسخة مطبوعة`}
         />
-        <StatCard
-          title="الكتب الجاهزة"
-          value={stats?.readyBooksCount || 0}
-          icon={CheckCircle2}
-          description={`${stats?.readyBooksQuantity || 0} نسخة جاهزة`}
-        />
+        {/* كرت الكتب الجاهزة القابل للتوسيع */}
+        <Card className="col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">الكتب الجاهزة</CardTitle>
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground shrink-0" />
+              {/* زر التوسيع/الطي مع أيقونة السهم */}
+              <button
+                type="button"
+                className="p-1 rounded-md hover:bg-muted transition-colors"
+                onClick={() => setIsReadyBooksExpanded(prev => !prev)}
+                data-testid="button-expand-ready-books"
+                aria-expanded={isReadyBooksExpanded}
+              >
+                <ChevronDown 
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    isReadyBooksExpanded ? "rotate-0" : "rotate-90"
+                  }`} 
+                />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{stats?.readyBooksCount || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">{stats?.readyBooksQuantity || 0} نسخة جاهزة</p>
+            
+            {/* قائمة الكتب الجاهزة مع أنيميشن */}
+            {isReadyBooksExpanded && (
+              <div 
+                className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200"
+                data-testid="ready-books-list-container"
+              >
+                {stats?.readyBooksList && stats.readyBooksList.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {stats.readyBooksList.map((book) => (
+                      <div
+                        key={book.id}
+                        onClick={() => navigate(`/books?bookId=${book.id}`)}
+                        className="flex items-center justify-between p-2 rounded-md bg-primary/10 hover:bg-primary/20 cursor-pointer transition-colors duration-150"
+                        data-testid={`ready-book-item-${book.id}`}
+                      >
+                        <span className="text-sm font-medium truncate flex-1 ml-2">{book.title}</span>
+                        <Badge variant="secondary" className="shrink-0">
+                          {book.readyQuantity} نسخة
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">لا توجد كتب جاهزة</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
         <StatCard
           title="المصروفات الشهرية"
           value={`${Number(stats?.totalExpenses || 0).toLocaleString()} د.ج`}

@@ -926,6 +926,45 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/calculations/:id", async (req, res) => {
+    try {
+      const calcId = req.params.id;
+      const userRole = req.headers['x-user-role'];
+      const currentUser = req.body.currentUser;
+
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
+      }
+
+      const calc = await storage.getSavedCalculations().then(calcs => calcs.find(c => c.id === calcId));
+      if (!calc) {
+        return res.status(404).json({ message: "السجل غير موجود" });
+      }
+
+      await storage.deleteSavedCalculation(calcId);
+
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'delete',
+          entityType: 'calculation',
+          entityId: calcId,
+          entityName: calc.bookTitle,
+          details: `حذف سجل حساب كتاب: ${calc.bookTitle}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting calculation:", error);
+      res.status(500).json({ message: "خطأ في حذف السجل" });
+    }
+  });
+
   // ===== سجل النشاط =====
   app.get("/api/activity-logs", async (req, res) => {
     try {

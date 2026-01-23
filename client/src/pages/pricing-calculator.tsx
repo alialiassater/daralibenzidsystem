@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Calculator, Printer, Droplets, Banknote, FileText, Save, History, Loader2, Search } from "lucide-react";
+import { Calculator, Printer, Droplets, Banknote, FileText, Save, History, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -12,6 +12,17 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import type { SavedCalculation } from "@shared/schema";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const PAPER_SIZES = [
   { label: "A4", value: "A4", paperPrice: 5.85, coverPrice: 150 },
@@ -42,6 +53,23 @@ export default function PricingCalculatorPage() {
 
   const { data: savedCalcs, isLoading: isLoadingCalcs } = useQuery<SavedCalculation[]>({
     queryKey: ["/api/calculations"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/calculations/${id}`, { currentUser: user });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/calculations"] });
+      toast({ title: "تم حذف السجل بنجاح" });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "خطأ في الحذف", 
+        description: error.message || "حدث خطأ غير متوقع", 
+        variant: "destructive" 
+      });
+    },
   });
 
   const saveMutation = useMutation({
@@ -366,6 +394,7 @@ export default function PricingCalculatorPage() {
                   <th className="pb-3 pr-2">النسخ</th>
                   <th className="pb-3 pr-2 text-left">السعر</th>
                   <th className="pb-3 pr-2">التاريخ</th>
+                  {isAdmin && <th className="pb-3 pr-2 text-center">الإجراءات</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -381,6 +410,34 @@ export default function PricingCalculatorPage() {
                     <td className="py-3 pr-2 text-xs text-muted-foreground">
                       {calc.createdAt ? format(new Date(calc.createdAt), "PPP p", { locale: ar }) : "-"}
                     </td>
+                    {isAdmin && (
+                      <td className="py-3 pr-2 text-center">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent dir="rtl">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>هل أنت متأكد من الحذف؟</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                سيتم حذف سجل حساب كتاب "{calc.bookTitle}" نهائياً من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="flex-row-reverse gap-2">
+                              <AlertDialogAction 
+                                onClick={() => deleteMutation.mutate(calc.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                حذف
+                              </AlertDialogAction>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {!isLoadingCalcs && (!savedCalcs || savedCalcs.length === 0) && (

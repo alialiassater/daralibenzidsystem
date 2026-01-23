@@ -68,6 +68,7 @@ export interface IStorage {
   // Calculations
   createSavedCalculation(calc: InsertSavedCalculation): Promise<SavedCalculation>;
   getSavedCalculations(): Promise<SavedCalculation[]>;
+  deleteSavedCalculation(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -431,6 +432,10 @@ export class DatabaseStorage implements IStorage {
 
   async getSavedCalculations(): Promise<SavedCalculation[]> {
     return db.select().from(savedCalculations).orderBy(desc(savedCalculations.createdAt));
+  }
+
+  async deleteSavedCalculation(id: string): Promise<void> {
+    await db.delete(savedCalculations).where(eq(savedCalculations.id, id));
   }
 }
 

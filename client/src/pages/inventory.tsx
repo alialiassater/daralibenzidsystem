@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeGenerator } from "@/components/barcode-generator";
 import { BarcodeScanner } from "@/components/barcode-scanner";
-import { Plus, Package, ArrowUpCircle, ArrowDownCircle, Search, Loader2, QrCode, History, Trash2 } from "lucide-react";
+import { Plus, Package, ArrowUpCircle, ArrowDownCircle, Search, Loader2, QrCode, History, Trash2, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
@@ -26,9 +26,32 @@ const materialSchema = z.object({
   name: z.string().min(1, "اسم المادة مطلوب"),
   type: z.string().min(1, "نوع المادة مطلوب"),
   quantity: z.coerce.number().min(0, "الكمية يجب أن تكون 0 أو أكثر"),
-  minQuantity: z.coerce.number().min(1, "الحد الأدنى مطلوب"),
   price: z.coerce.number().min(0, "السعر مطلوب"),
+  paperSize: z.string().optional(),
+  paperVariant: z.string().optional(),
 });
+
+// مخطط تحديث المادة
+const updateMaterialSchema = z.object({
+  price: z.coerce.number().min(0, "السعر مطلوب"),
+  paperSize: z.string().optional(),
+  paperVariant: z.string().optional(),
+});
+
+// خيارات حجم الورق
+const paperSizes = [
+  { value: "A3", label: "A3" },
+  { value: "A4", label: "A4" },
+  { value: "A5", label: "A5" },
+];
+
+// أنواع الورق
+const paperVariants = [
+  { value: "extra", label: "اكسترا" },
+  { value: "autoclon", label: "اوتوكولون" },
+  { value: "insiar", label: "انسيار" },
+  { value: "other", label: "أخرى" },
+];
 
 const movementSchema = z.object({
   type: z.enum(["in", "out"]),
@@ -38,6 +61,7 @@ const movementSchema = z.object({
 
 type MaterialForm = z.infer<typeof materialSchema>;
 type MovementForm = z.infer<typeof movementSchema>;
+type UpdateMaterialForm = z.infer<typeof updateMaterialSchema>;
 
 const materialTypes = [
   { value: "paper", label: "ورق" },
@@ -73,9 +97,11 @@ export default function InventoryPage() {
   const [isMovementOpen, setIsMovementOpen] = useState(false);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const { user, canDelete } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const { data: materials, isLoading } = useQuery<Material[]>({
     queryKey: ["/api/materials"],
@@ -91,10 +117,24 @@ export default function InventoryPage() {
       name: "",
       type: "",
       quantity: 0,
-      minQuantity: 10,
       price: 0,
+      paperSize: "",
+      paperVariant: "",
     },
   });
+  
+  // نموذج تحديث المادة
+  const editForm = useForm<UpdateMaterialForm>({
+    resolver: zodResolver(updateMaterialSchema),
+    defaultValues: {
+      price: 0,
+      paperSize: "",
+      paperVariant: "",
+    },
+  });
+  
+  // متابعة نوع المادة لإظهار حقول الورق
+  const watchedType = addForm.watch("type");
 
   const movementForm = useForm<MovementForm>({
     resolver: zodResolver(movementSchema),
@@ -163,6 +203,38 @@ export default function InventoryPage() {
     },
   });
 
+  // تحديث المادة (السعر، الحجم، النوع)
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateMaterialForm) => {
+      const res = await apiRequest("PATCH", `/api/materials/${selectedMaterial?.id}`, { 
+        ...data, 
+        currentUser: user 
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/materials"] });
+      setIsEditOpen(false);
+      setSelectedMaterial(null);
+      editForm.reset();
+      toast({ title: "تم تحديث المادة بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ أثناء التحديث", variant: "destructive" });
+    },
+  });
+
+  // فتح نافذة التحديث مع تعبئة البيانات
+  const openEditDialog = (material: Material) => {
+    setSelectedMaterial(material);
+    editForm.reset({
+      price: Number(material.price) || 0,
+      paperSize: material.paperSize || "",
+      paperVariant: material.paperVariant || "",
+    });
+    setIsEditOpen(true);
+  };
+
   const handleBarcodeScan = (barcode: string) => {
     const material = materials?.find((m) => m.barcode === barcode);
     if (material) {
@@ -182,6 +254,16 @@ export default function InventoryPage() {
 
   const getTypeLabel = (type: string) => {
     return materialTypes.find((t) => t.value === type)?.label || type;
+  };
+  
+  // دالة للحصول على اسم حجم الورق
+  const getPaperSizeLabel = (size: string | null | undefined) => {
+    return size || "-";
+  };
+  
+  // دالة للحصول على اسم نوع الورق
+  const getPaperVariantLabel = (variant: string | null | undefined) => {
+    return paperVariants.find((v) => v.value === variant)?.label || variant || "-";
   };
 
   if (isLoading) {
@@ -261,31 +343,72 @@ export default function InventoryPage() {
                   />
                   <FormField
                     control={addForm.control}
-                    name="minQuantity"
+                    name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>الحد الأدنى</FormLabel>
+                        <FormLabel>السعر (د.ج)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} data-testid="input-material-min" />
+                          <Input type="number" step="0.01" {...field} data-testid="input-material-price" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                <FormField
-                  control={addForm.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>السعر (د.ج)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} data-testid="input-material-price" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
+                {/* حقول خاصة بالورق */}
+                {watchedType === "paper" && (
+                  <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                    <FormField
+                      control={addForm.control}
+                      name="paperSize"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>حجم الورق</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-paper-size">
+                                <SelectValue placeholder="اختر الحجم" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {paperSizes.map((size) => (
+                                <SelectItem key={size.value} value={size.value}>
+                                  {size.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="paperVariant"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>نوع الورق</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-paper-variant">
+                                <SelectValue placeholder="اختر النوع" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {paperVariants.map((variant) => (
+                                <SelectItem key={variant.value} value={variant.value}>
+                                  {variant.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={addMutation.isPending} data-testid="button-submit-material">
                   {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
                 </Button>
@@ -331,6 +454,7 @@ export default function InventoryPage() {
                   <TableRow>
                     <TableHead className="whitespace-nowrap">المادة</TableHead>
                     <TableHead className="whitespace-nowrap">النوع</TableHead>
+                    <TableHead className="whitespace-nowrap hidden sm:table-cell">الحجم/الصنف</TableHead>
                     <TableHead className="whitespace-nowrap">الكمية</TableHead>
                     <TableHead className="whitespace-nowrap hidden sm:table-cell">السعر</TableHead>
                     <TableHead className="whitespace-nowrap hidden md:table-cell">الباركود</TableHead>
@@ -340,7 +464,7 @@ export default function InventoryPage() {
                 <TableBody>
                   {filteredMaterials?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
                         لا توجد مواد
                       </TableCell>
@@ -352,21 +476,13 @@ export default function InventoryPage() {
                         <TableCell>
                           <Badge variant="secondary">{getTypeLabel(material.type)}</Badge>
                         </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                          {material.type === "paper" ? (
+                            <span>{getPaperSizeLabel(material.paperSize)} / {getPaperVariantLabel(material.paperVariant)}</span>
+                          ) : "-"}
+                        </TableCell>
                         <TableCell>
-                          <span
-                            className={
-                              material.quantity <= material.minQuantity
-                                ? "text-destructive font-bold"
-                                : ""
-                            }
-                          >
-                            {material.quantity}
-                          </span>
-                          {material.quantity <= material.minQuantity && (
-                            <Badge variant="destructive" className="mr-2">
-                              منخفض
-                            </Badge>
-                          )}
+                          <span>{material.quantity}</span>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">{Number(material.price).toLocaleString()} د.ج</TableCell>
                         <TableCell className="font-mono text-sm hidden md:table-cell">{material.barcode}</TableCell>
@@ -397,6 +513,17 @@ export default function InventoryPage() {
                             >
                               <QrCode className="h-4 w-4" />
                             </Button>
+                            {isAdmin && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9"
+                                onClick={() => openEditDialog(material)}
+                                data-testid={`button-edit-${material.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
                             {canDelete && (
                               <Button
                                 size="icon"
@@ -562,6 +689,90 @@ export default function InventoryPage() {
               <BarcodeGenerator value={selectedMaterial.barcode} />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* نافذة تعديل المادة */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعديل المادة: {selectedMaterial?.name}</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => updateMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>السعر (د.ج)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} data-testid="input-edit-price" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* حقول خاصة بالورق */}
+              {selectedMaterial?.type === "paper" && (
+                <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                  <FormField
+                    control={editForm.control}
+                    name="paperSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>حجم الورق</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-paper-size">
+                              <SelectValue placeholder="اختر الحجم" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {paperSizes.map((size) => (
+                              <SelectItem key={size.value} value={size.value}>
+                                {size.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="paperVariant"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>نوع الورق</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-paper-variant">
+                              <SelectValue placeholder="اختر النوع" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {paperVariants.map((variant) => (
+                              <SelectItem key={variant.value} value={variant.value}>
+                                {variant.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              
+              <Button type="submit" className="w-full" disabled={updateMutation.isPending} data-testid="button-save-edit">
+                {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ التغييرات"}
+              </Button>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

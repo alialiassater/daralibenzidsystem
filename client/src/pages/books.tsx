@@ -537,9 +537,35 @@ export default function BooksPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>رقم ISBN (سيستخدم كباركود)</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-book-isbn" placeholder="مثلاً: 9789947000000" />
-                          </FormControl>
+                          <div className="flex gap-2">
+                            <FormControl>
+                              <Input {...field} data-testid="input-book-isbn" placeholder="مثلاً: 9789947000000" />
+                            </FormControl>
+                            <BarcodeScanner 
+                              onScan={async (isbn) => {
+                                const cleanIsbn = isbn.replace(/^(BOOK|MAT)/, "");
+                                field.onChange(cleanIsbn);
+                                toast({ title: "جاري البحث عن بيانات الكتاب..." });
+                                try {
+                                  const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`);
+                                  const data = await response.json();
+                                  const bookData = data[`ISBN:${cleanIsbn}`];
+                                  if (bookData) {
+                                    addForm.setValue("title", bookData.title || "");
+                                    if (bookData.authors && bookData.authors.length > 0) {
+                                      addForm.setValue("author", bookData.authors[0].name || "");
+                                    }
+                                    toast({ title: "تم جلب بيانات الكتاب بنجاح" });
+                                  } else {
+                                    toast({ title: "لم يتم العثور على بيانات لهذا الرقم", variant: "destructive" });
+                                  }
+                                } catch (error) {
+                                  toast({ title: "حدث خطأ أثناء الاتصال بخدمة البيانات", variant: "destructive" });
+                                }
+                              }} 
+                              placeholder="مسح ISBN"
+                            />
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}

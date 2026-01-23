@@ -1,5 +1,5 @@
 import {
-  users, materials, inventoryMovements, printOrders, orderMaterials, books, expenses, activityLogs,
+  users, materials, inventoryMovements, printOrders, orderMaterials, books, expenses, activityLogs, savedCalculations,
   type User, type InsertUser, type UpdateUser,
   type Material, type InsertMaterial,
   type InventoryMovement, type InsertInventoryMovement,
@@ -7,6 +7,7 @@ import {
   type Book, type InsertBook, type UpdateBook,
   type Expense, type InsertExpense,
   type ActivityLog, type InsertActivityLog,
+  type SavedCalculation, type InsertSavedCalculation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, and, gte, lte, desc, ne } from "drizzle-orm";

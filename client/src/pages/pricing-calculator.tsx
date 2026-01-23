@@ -110,9 +110,27 @@ export default function PricingCalculatorPage() {
       return;
     }
 
+    if (!bookTitle.trim()) {
+      toast({ 
+        title: "يرجى إدخال اسم الكتاب", 
+        description: "لا يمكن حفظ الحساب بدون اسم", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (results.finalTotal <= 0) {
+      toast({ 
+        title: "السعر غير صالح", 
+        description: "يجب أن يكون السعر الإجمالي أكبر من صفر للحفظ", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     saveMutation.mutate({
       userId: user?.id,
-      bookTitle: bookTitle || "كتاب بدون عنوان",
+      bookTitle: bookTitle.trim(),
       totalPrice: results.finalTotal.toString(),
       paperSize,
       pageCount,

@@ -732,46 +732,15 @@ export default function BooksPage() {
       <Dialog open={isBarcodeOpen} onOpenChange={setIsBarcodeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>باركود الكتاب</DialogTitle>
+            <DialogTitle>باركود ISBN</DialogTitle>
           </DialogHeader>
           {selectedBook && (
             <div className="space-y-4">
-              <div id="barcode-print-area" className="flex flex-col items-center p-4 bg-white">
+              <div className="flex flex-col items-center p-4 bg-white rounded-md border">
                 <p className="text-center font-bold text-black mb-2">{selectedBook.title}</p>
-                <BarcodeGenerator value={selectedBook.barcode} />
-                <p className="text-center text-xs text-black mt-1">ISBN: {selectedBook.isbn}</p>
+                <BarcodeGenerator value={selectedBook.isbn} showDownload={false} showPrint={false} />
+                <p className="text-center text-xs text-black mt-1 font-mono">{selectedBook.isbn}</p>
               </div>
-              <Button 
-                onClick={() => {
-                  const content = document.getElementById("barcode-print-area");
-                  if (content) {
-                    const printWindow = window.open('', '_blank');
-                    printWindow?.document.write(`
-                      <html>
-                        <head>
-                          <title>طباعة باركود - ${selectedBook.title}</title>
-                          <style>
-                            body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
-                            @media print { body { height: auto; } }
-                          </style>
-                        </head>
-                        <body>${content.innerHTML}</body>
-                      </html>
-                    `);
-                    printWindow?.document.close();
-                    printWindow?.focus();
-                    setTimeout(() => {
-                      printWindow?.print();
-                      printWindow?.close();
-                    }, 250);
-                  }
-                }} 
-                className="w-full"
-                variant="outline"
-              >
-                <Printer className="h-4 w-4 ml-2" />
-                طباعة الباركود
-              </Button>
             </div>
           )}
         </DialogContent>

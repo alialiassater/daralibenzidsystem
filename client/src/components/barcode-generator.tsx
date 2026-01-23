@@ -113,34 +113,8 @@ export function BarcodeGenerator({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-md border">
+    <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-md border overflow-visible">
       <svg ref={svgRef} />
-      {(showDownload || showPrint) && (
-        <div className="flex gap-2">
-          {showDownload && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleDownload}
-              data-testid="button-download-barcode"
-            >
-              <Download className="h-4 w-4 ml-1" />
-              تحميل
-            </Button>
-          )}
-          {showPrint && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handlePrint}
-              data-testid="button-print-barcode"
-            >
-              <PrinterIcon className="h-4 w-4 ml-1" />
-              طباعة
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

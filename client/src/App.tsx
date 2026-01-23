@@ -56,7 +56,7 @@ function Router() {
 
 function AuthenticatedLayout() {
   const sidebarStyle = {
-    "--sidebar-width": "16rem",
+    "--sidebar-width": "12rem",
     "--sidebar-width-icon": "3.5rem",
   };
 
@@ -66,7 +66,8 @@ function AuthenticatedLayout() {
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1">
           <header className="flex items-center justify-between gap-4 p-3 border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="hidden sm:flex" />
+            <div className="sm:hidden" />
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">

@@ -57,7 +57,7 @@ export function BarcodeScanner({ onScan, placeholder = "أدخل الباركو�
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleManualSubmit} className="flex gap-2">
+      <div className="flex gap-2">
         <Input
           value={manualInput}
           onChange={(e) => setManualInput(e.target.value)}
@@ -65,7 +65,7 @@ export function BarcodeScanner({ onScan, placeholder = "أدخل الباركو�
           className="flex-1"
           data-testid="input-barcode-manual"
         />
-        <Button type="submit" variant="secondary" data-testid="button-barcode-submit">
+        <Button type="button" variant="secondary" onClick={handleManualSubmit} data-testid="button-barcode-submit">
           <Keyboard className="h-4 w-4 ml-1" />
           إدخال
         </Button>
@@ -128,7 +128,7 @@ export function BarcodeScanner({ onScan, placeholder = "أدخل الباركو�
             </div>
           </DialogContent>
         </Dialog>
-      </form>
+      </div>
     </div>
   );
 }

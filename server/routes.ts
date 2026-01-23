@@ -678,6 +678,12 @@ export async function registerRoutes(
         return res.status(403).json({ message: "صلاحية الإضافة متاحة للمدير فقط" });
       }
 
+      // التحقق من أن ISBN فريد
+      const existingBook = await storage.getBooks().then(books => books.find(b => b.isbn === validatedData.isbn && !b.isDeleted));
+      if (existingBook) {
+        return res.status(400).json({ message: "رقم ISBN مسجل مسبقاً لكتاب آخر" });
+      }
+
       const book = await storage.createBook(validatedData);
       
       // تسجيل النشاط

@@ -545,7 +545,7 @@ export default function BooksPage() {
                           <BarcodeScanner 
                             onScan={async (isbn) => {
                               const cleanIsbn = isbn.replace(/^(BOOK|MAT)/, "").replace(/[-\s]/g, "");
-                              field.onChange(cleanIsbn);
+                              addForm.setValue("isbn", cleanIsbn);
                               toast({ title: "جاري البحث عن بيانات الكتاب..." });
                               try {
                                 const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`);

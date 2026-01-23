@@ -65,7 +65,7 @@ export const books = pgTable("books", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   author: text("author").notNull(),
-  isbn: text("isbn").notNull().unique(),
+  isbn: text("isbn").notNull(),
   barcode: text("barcode").notNull().unique(),
   category: text("category").notNull().default("أخرى"), // تعليمي، ديني، أدبي، علمي، أطفال، أخرى
   coverImage: text("cover_image"), // مسار صورة الغلاف

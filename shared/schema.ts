@@ -108,10 +108,38 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Saved Calculations
+export const savedCalculations = pgTable("saved_calculations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  paperSize: text("paper_size").notNull(),
+  pageCount: integer("page_count").notNull(),
+  copyCount: integer("copy_count").notNull(),
+  details: text("details"), // JSON string of all calculation inputs
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   inventoryMovements: many(inventoryMovements),
+  savedCalculations: many(savedCalculations),
 }));
+
+export const savedCalculationsRelations = relations(savedCalculations, ({ one }) => ({
+  user: one(users, {
+    fields: [savedCalculations.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertSavedCalculationSchema = createInsertSchema(savedCalculations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSavedCalculation = z.infer<typeof insertSavedCalculationSchema>;
+export type SavedCalculation = typeof savedCalculations.$inferSelect;
 
 export const materialsRelations = relations(materials, ({ many }) => ({
   movements: many(inventoryMovements),

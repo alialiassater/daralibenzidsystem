@@ -64,36 +64,9 @@ export interface IStorage {
   getActivityLogs(filters?: { userId?: string; action?: string; entityType?: string }): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
 
-  getDashboardStats(): Promise<{
-    totalMaterials: number;
-    lowStockCount: number;
-    totalOrders: number;
-    pendingOrders: number;
-    totalBooks: number;
-    totalPrintedCopies: number;
-    totalExpenses: number;
-    readyBooksCount: number;
-    readyBooksQuantity: number;
-    readyBooksList: Array<{ id: string; title: string; readyQuantity: number }>;
-    lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
-    recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
-    ordersList: Array<{ id: string; customerName: string; status: string; quantity: number; printType: string; createdAt: Date | null }>;
-  }>;
-}
-
-function generateBarcode(): string {
-  return `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-}
-
-// حساب حالة الكتاب تلقائياً حسب الكميات
-function calculateBookStatus(readyQuantity: number, printingQuantity: number): string {
-  if (readyQuantity > 0) {
-    return "ready"; // جاهز
-  } else if (printingQuantity > 0) {
-    return "printing"; // قيد الطباعة
-  } else {
-    return "unavailable"; // غير متوفر
-  }
+  // Calculations
+  createSavedCalculation(calc: InsertSavedCalculation): Promise<SavedCalculation>;
+  getSavedCalculations(): Promise<SavedCalculation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -448,6 +421,15 @@ export class DatabaseStorage implements IStorage {
       booksByCategory: Object.entries(booksByCategory).map(([name, value]) => ({ name, value })),
       inventoryByQuantity
     };
+  }
+
+  async createSavedCalculation(calc: InsertSavedCalculation): Promise<SavedCalculation> {
+    const [saved] = await db.insert(savedCalculations).values(calc).returning();
+    return saved;
+  }
+
+  async getSavedCalculations(): Promise<SavedCalculation[]> {
+    return db.select().from(savedCalculations).orderBy(desc(savedCalculations.createdAt));
   }
 }
 

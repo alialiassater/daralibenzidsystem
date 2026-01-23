@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, updateBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, type InsertActivityLog } from "@shared/schema";
+import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, updateBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, insertSavedCalculationSchema, type InsertActivityLog } from "@shared/schema";
 import { createHash } from "crypto";
 
 // دالة لتشفير كلمة المرور
@@ -898,6 +898,31 @@ export async function registerRoutes(
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "خطأ في جلب الإحصائيات" });
+    }
+  });
+
+  // ===== Saved Calculations =====
+  app.get("/api/calculations", async (req, res) => {
+    try {
+      const calculations = await storage.getSavedCalculations();
+      res.json(calculations);
+    } catch (error) {
+      console.error("Error fetching calculations:", error);
+      res.status(500).json({ message: "خطأ في جلب الحسابات المحفوظة" });
+    }
+  });
+
+  app.post("/api/calculations", async (req, res) => {
+    try {
+      const validatedData = insertSavedCalculationSchema.parse(req.body);
+      const calculation = await storage.createSavedCalculation(validatedData);
+      res.json(calculation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: error.errors });
+      }
+      console.error("Error saving calculation:", error);
+      res.status(500).json({ message: "خطأ في حفظ الحساب" });
     }
   });
 

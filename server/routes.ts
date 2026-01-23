@@ -53,7 +53,7 @@ export async function registerRoutes(
         if (username === "admin" && password === "admin123") {
           user = await storage.createUser({
             username: "admin",
-            password: "admin123",
+            password: "admin",
             fullName: "مدير النظام",
             role: "admin",
           });

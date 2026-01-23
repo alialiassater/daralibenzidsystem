@@ -6,8 +6,21 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "/logo.png";
@@ -67,10 +80,16 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-white p-2 shadow-lg overflow-hidden border">
-            <img src={logoImage} alt="دار علي بن زيد" className="h-full w-full object-contain" />
+            <img
+              src={logoImage}
+              alt="دار علي بن زيد"
+              className="h-full w-full object-contain"
+            />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">نظام إدارة المطبعة</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              دار علي بن زيد للطباعة والنشر
+            </CardTitle>
             <CardDescription className="mt-2">
               قم بتسجيل الدخول للوصول إلى لوحة التحكم
             </CardDescription>

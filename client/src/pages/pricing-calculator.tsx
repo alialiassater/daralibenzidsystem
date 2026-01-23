@@ -32,7 +32,6 @@ export default function PricingCalculatorPage() {
   const [paperSize, setPaperSize] = useState<string>("A4");
   const [customMultiplier, setCustomMultiplier] = useState<number>(1);
   const [inkPrice, setInkPrice] = useState<number>(3500);
-  const [pagesPerInk, setPagesPerInk] = useState<number>(5000);
   const [extraCosts, setExtraCosts] = useState<number>(0);
 
   const [results, setResults] = useState({
@@ -65,18 +64,17 @@ export default function PricingCalculatorPage() {
     const multiplier = paperSize === "custom" ? customMultiplier : (selectedSize?.multiplier || 1);
     
     const totalPages = pageCount * copies;
-    const inkCartridges = Math.ceil(totalPages / pagesPerInk) || 0;
-    const inkCost = inkCartridges * inkPrice;
+    const inkCost = totalPages > 0 ? inkPrice : 0; // علبة واحدة إذا كان هناك صفحات
     const paperCost = totalPages * paperPrice * multiplier;
     const totalCost = paperCost + inkCost + extraCosts;
 
     setResults({
-      inkCartridges,
+      inkCartridges: totalPages > 0 ? 1 : 0,
       paperCost,
       inkCost,
       totalCost,
     });
-  }, [paperPrice, pageCount, copies, paperSize, customMultiplier, inkPrice, pagesPerInk, extraCosts]);
+  }, [paperPrice, pageCount, copies, paperSize, customMultiplier, inkPrice, extraCosts]);
 
   const handleSave = () => {
     if (!isAdmin) {
@@ -195,24 +193,14 @@ export default function PricingCalculatorPage() {
                   onChange={(e) => setInkPrice(Number(e.target.value))}
                   className="h-9"
                 />
-                <p className="text-[10px] text-muted-foreground">التكلفة لكل علبة كاملة</p>
+                <p className="text-[10px] text-muted-foreground font-medium">يتم حساب تكلفة علبة واحدة فقط</p>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm">صفحات/علبة حبر</Label>
-                <Input 
-                  type="number" 
-                  value={pagesPerInk} 
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setPagesPerInk(val);
-                  }}
-                  className={`h-9 ${pagesPerInk < 500 ? 'border-destructive' : ''}`}
-                />
-                {pagesPerInk < 500 ? (
-                  <p className="text-[10px] text-destructive font-medium italic">قيمة غير منطقية لعلبة الحبر</p>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground">العلبة تطبع آلاف الصفحات (مثلاً 5000)</p>
-                )}
+                <Label className="text-sm">صفحات/علبة حبر (معلومة)</Label>
+                <div className="h-9 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm text-muted-foreground select-none">
+                  حوالي 2000 صفحة
+                </div>
+                <p className="text-[10px] text-muted-foreground italic">هذه معلومة تقريبية ولا تدخل في حساب السعر</p>
               </div>
             </div>
 

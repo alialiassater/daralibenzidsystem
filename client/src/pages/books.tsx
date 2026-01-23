@@ -27,6 +27,10 @@ const BOOK_CATEGORIES = [
   { value: "أطفال", label: "أطفال" },
   { value: "تاريخي", label: "تاريخي" },
   { value: "فلسفي", label: "فلسفي" },
+  { value: "شعر", label: "شعر" },
+  { value: "رواية", label: "رواية" },
+  { value: "قصص قصيرة", label: "قصص قصيرة" },
+  { value: "مسرحيات", label: "مسرحيات" },
   { value: "أخرى", label: "أخرى" },
 ];
 
@@ -159,6 +163,10 @@ function BookCard({ book, onViewBarcode, onEditQuantity, onEditBook, onDeleteBoo
     "أطفال": "bg-pink-500/10 text-pink-600",
     "تاريخي": "bg-amber-500/10 text-amber-600",
     "فلسفي": "bg-indigo-500/10 text-indigo-600",
+    "شعر": "bg-rose-500/10 text-rose-600",
+    "رواية": "bg-cyan-500/10 text-cyan-600",
+    "قصص قصيرة": "bg-teal-500/10 text-teal-600",
+    "مسرحيات": "bg-violet-500/10 text-violet-600",
     "أخرى": "bg-gray-500/10 text-gray-600",
   };
 

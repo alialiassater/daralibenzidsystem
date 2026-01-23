@@ -32,7 +32,7 @@ export default function PricingCalculatorPage() {
   const [paperSize, setPaperSize] = useState<string>("A4");
   const [customMultiplier, setCustomMultiplier] = useState<number>(1);
   const [inkPrice, setInkPrice] = useState<number>(3500);
-  const [pagesPerInk, setPagesPerInk] = useState<number>(1000);
+  const [pagesPerInk, setPagesPerInk] = useState<number>(5000);
   const [extraCosts, setExtraCosts] = useState<number>(0);
 
   const [results, setResults] = useState({
@@ -188,22 +188,31 @@ export default function PricingCalculatorPage() {
 
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed">
               <div className="space-y-2">
-                <Label className="text-sm">سعر علبة الحبر</Label>
+                <Label className="text-sm">سعر علبة الحبر (د.ج)</Label>
                 <Input 
                   type="number" 
                   value={inkPrice} 
                   onChange={(e) => setInkPrice(Number(e.target.value))}
                   className="h-9"
                 />
+                <p className="text-[10px] text-muted-foreground">التكلفة لكل علبة كاملة</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-sm">صفحات/علبة حبر</Label>
                 <Input 
                   type="number" 
                   value={pagesPerInk} 
-                  onChange={(e) => setPagesPerInk(Number(e.target.value))}
-                  className="h-9"
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setPagesPerInk(val);
+                  }}
+                  className={`h-9 ${pagesPerInk < 500 ? 'border-destructive' : ''}`}
                 />
+                {pagesPerInk < 500 ? (
+                  <p className="text-[10px] text-destructive font-medium italic">قيمة غير منطقية لعلبة الحبر</p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground">العلبة تطبع آلاف الصفحات (مثلاً 5000)</p>
+                )}
               </div>
             </div>
 

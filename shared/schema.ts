@@ -78,7 +78,7 @@ export const books = pgTable("books", {
   pageCount: integer("page_count").notNull().default(0),
   paperPricePerSheet: decimal("paper_price_per_sheet", { precision: 10, scale: 2 }).notNull().default("0"),
   inkCartridgePrice: decimal("ink_cartridge_price", { precision: 10, scale: 2 }).notNull().default("3500"),
-  pagesPerCartridge: integer("pages_per_cartridge").notNull().default(1000),
+  pagesPerCartridge: integer("pages_per_cartridge").notNull().default(5000),
   additionalCosts: decimal("additional_costs", { precision: 10, scale: 2 }).notNull().default("0"),
   isDeleted: boolean("is_deleted").notNull().default(false), // حذف منطقي
   createdAt: timestamp("created_at").defaultNow(),
@@ -230,7 +230,7 @@ export const insertBookSchema = createInsertSchema(books).omit({
   pageCount: z.number().optional().default(0),
   paperPricePerSheet: priceTransform.optional().default("0"),
   inkCartridgePrice: priceTransform.optional().default("3500"),
-  pagesPerCartridge: z.number().optional().default(1000),
+  pagesPerCartridge: z.number().optional().default(5000),
   additionalCosts: priceTransform.optional().default("0"),
 });
 

@@ -19,6 +19,13 @@ function hashPassword(password: string): string {
   return createHash('sha256').update(password).digest('hex');
 }
 
+// Helper to calculate book status
+function calculateBookStatus(ready: number, printing: number): string {
+  if (ready > 0) return 'ready';
+  if (printing > 0) return 'printing';
+  return 'unavailable';
+}
+
 export interface IStorage {
   // إدارة المستخدمين
   getUser(id: string): Promise<User | undefined>;
@@ -125,7 +132,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMaterial(insertMaterial: InsertMaterial): Promise<Material> {
-    const barcode = generateBarcode();
+    const barcode = randomUUID().split('-')[0].toUpperCase();
     const [material] = await db.insert(materials).values({ ...insertMaterial, barcode }).returning();
     return material;
   }
@@ -412,7 +419,7 @@ export class DatabaseStorage implements IStorage {
           id: o.id,
           customerName: o.customerName,
           status: o.status,
-          quantity: o.quantity,
+          copies: o.copies,
           printType: o.printType,
           createdAt: o.createdAt,
         })),

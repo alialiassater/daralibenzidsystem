@@ -57,7 +57,9 @@ export default function PricingCalculatorPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/calculations/${id}`, { currentUser: user });
+      await apiRequest("DELETE", `/api/calculations/${id}`, { currentUser: user }, { 
+        headers: { 'x-user-role': user?.role } 
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/calculations"] });

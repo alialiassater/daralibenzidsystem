@@ -62,7 +62,9 @@ export default function PricingCalculatorPage() {
       setResults({
         paperCost: 0,
         coverCost: 0,
-        totalCost: 0,
+        originalTotal: 0,
+        discountAmount: 0,
+        finalTotal: 0,
       });
       return;
     }

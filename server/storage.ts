@@ -81,7 +81,7 @@ export interface IStorage {
 }
 
 function generateBarcode(): string {
-  return `MAT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  return `${Date.now()}${Math.floor(Math.random() * 1000)}`;
 }
 
 // حساب حالة الكتاب تلقائياً حسب الكميات

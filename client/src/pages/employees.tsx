@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Users, Loader2, Edit2, UserCheck, UserX } from "lucide-react";
+import { Plus, Users, Loader2, Edit2, UserCheck, UserX, KeyRound } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 
@@ -46,6 +46,17 @@ const editEmployeeSchema = z.object({
 
 type EmployeeForm = z.infer<typeof employeeSchema>;
 type EditEmployeeForm = z.infer<typeof editEmployeeSchema>;
+
+// مخطط تغيير كلمة المرور
+const changePasswordSchema = z.object({
+  newPassword: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
+  confirmPassword: z.string().min(6, "تأكيد كلمة المرور مطلوب"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "كلمة المرور غير متطابقة",
+  path: ["confirmPassword"],
+});
+
+type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 
 const roleLabels: Record<string, string> = {
   admin: "مدير",
@@ -82,9 +93,11 @@ function LoadingSkeleton() {
 export default function EmployeesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const { data: employees, isLoading } = useQuery<Employee[]>({
     queryKey: ["/api/users"],
@@ -106,6 +119,15 @@ export default function EmployeesPage() {
       username: "",
       fullName: "",
       role: "employee",
+    },
+  });
+
+  // نموذج تغيير كلمة المرور
+  const passwordForm = useForm<ChangePasswordForm>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
@@ -158,6 +180,34 @@ export default function EmployeesPage() {
     },
   });
 
+  // mutation لتغيير كلمة المرور (للمدير فقط)
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      const res = await fetch(`/api/users/${userId}/password`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': user?.role || ''
+        },
+        body: JSON.stringify({ newPassword, currentUser: user })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'فشل تغيير كلمة المرور');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setIsPasswordOpen(false);
+      setSelectedEmployee(null);
+      passwordForm.reset();
+      toast({ title: "تم تغيير كلمة المرور بنجاح" });
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message || "حدث خطأ أثناء تغيير كلمة المرور", variant: "destructive" });
+    },
+  });
+
   const handleEdit = (employee: Employee) => {
     setSelectedEmployee(employee);
     editForm.reset({
@@ -166,6 +216,13 @@ export default function EmployeesPage() {
       role: employee.role as "admin" | "supervisor" | "employee",
     });
     setIsEditOpen(true);
+  };
+
+  // فتح نافذة تغيير كلمة المرور
+  const handleChangePassword = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    passwordForm.reset({ newPassword: "", confirmPassword: "" });
+    setIsPasswordOpen(true);
   };
 
   if (isLoading) {
@@ -370,15 +427,28 @@ export default function EmployeesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(employee)}
-                        disabled={employee.username === "admin" && user?.username !== "admin"}
-                        data-testid={`button-edit-${employee.id}`}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(employee)}
+                          disabled={employee.username === "admin" && user?.username !== "admin"}
+                          data-testid={`button-edit-${employee.id}`}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleChangePassword(employee)}
+                            data-testid={`button-change-password-${employee.id}`}
+                            title="تغيير كلمة المرور"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -460,6 +530,67 @@ export default function EmployeesPage() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     "حفظ التعديلات"
+                  )}
+                </Button>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* نافذة تغيير كلمة المرور (للمدير فقط) */}
+      <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تغيير كلمة المرور</DialogTitle>
+          </DialogHeader>
+          {selectedEmployee && (
+            <Form {...passwordForm}>
+              <form
+                onSubmit={passwordForm.handleSubmit((data) =>
+                  changePasswordMutation.mutate({ userId: selectedEmployee.id, newPassword: data.newPassword })
+                )}
+                className="space-y-4"
+              >
+                <p className="text-center text-muted-foreground mb-2">
+                  تغيير كلمة المرور للموظف: <strong>{selectedEmployee.fullName}</strong>
+                </p>
+                <FormField
+                  control={passwordForm.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>كلمة المرور الجديدة</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} data-testid="input-new-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={passwordForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>تأكيد كلمة المرور</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} data-testid="input-confirm-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={changePasswordMutation.isPending}
+                  data-testid="button-submit-password"
+                >
+                  {changePasswordMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "تغيير كلمة المرور"
                   )}
                 </Button>
               </form>

@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeGenerator } from "@/components/barcode-generator";
-import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image, Edit2, Package } from "lucide-react";
+import { Plus, BookOpen, Search, Loader2, QrCode, TrendingUp, Upload, Image, Edit2, Package, Trash2, Pencil } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Book } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
@@ -62,6 +63,26 @@ const quantitySchema = z.object({
 
 type QuantityForm = z.infer<typeof quantitySchema>;
 
+// مخطط تعديل بيانات الكتاب الكاملة
+const editBookSchema = z.object({
+  title: z.string().min(1, "اسم الكتاب مطلوب"),
+  author: z.string().min(1, "اسم المؤلف مطلوب"),
+  isbn: z.string().min(1, "رقم ISBN مطلوب"),
+  category: z.string().min(1, "الصنف مطلوب"),
+  totalQuantity: z.coerce.number().min(0),
+  readyQuantity: z.coerce.number().min(0),
+  printingQuantity: z.coerce.number().min(0),
+  price: z.coerce.number().min(0),
+}).refine((data) => data.readyQuantity <= data.totalQuantity, {
+  message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية",
+  path: ["readyQuantity"],
+}).refine((data) => data.readyQuantity + data.printingQuantity <= data.totalQuantity, {
+  message: "مجموع الكميات لا يمكن أن يتجاوز الكمية الإجمالية",
+  path: ["printingQuantity"],
+});
+
+type EditBookForm = z.infer<typeof editBookSchema>;
+
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   "ready": { label: "جاهز", className: "bg-green-500/10 text-green-600" },
   "printing": { label: "قيد الطباعة", className: "bg-yellow-500/10 text-yellow-600" },
@@ -89,7 +110,14 @@ function LoadingSkeleton() {
   );
 }
 
-function BookCard({ book, onViewBarcode, onEditQuantity }: { book: Book; onViewBarcode: (book: Book) => void; onEditQuantity: (book: Book) => void }) {
+function BookCard({ book, onViewBarcode, onEditQuantity, onEditBook, onDeleteBook, isAdmin }: { 
+  book: Book; 
+  onViewBarcode: (book: Book) => void; 
+  onEditQuantity: (book: Book) => void;
+  onEditBook: (book: Book) => void;
+  onDeleteBook: (book: Book) => void;
+  isAdmin: boolean;
+}) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -203,12 +231,38 @@ function BookCard({ book, onViewBarcode, onEditQuantity }: { book: Book; onViewB
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="font-bold text-primary">{Number(book.price).toLocaleString()} د.ج</span>
           <div className="flex gap-1">
+            <Button size="icon" variant="ghost" onClick={() => onEditBook(book)} data-testid={`button-edit-book-${book.id}`}>
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button size="icon" variant="ghost" onClick={() => onEditQuantity(book)} data-testid={`button-edit-quantity-${book.id}`}>
               <Edit2 className="h-4 w-4" />
             </Button>
             <Button size="icon" variant="ghost" onClick={() => onViewBarcode(book)} data-testid={`button-barcode-book-${book.id}`}>
               <QrCode className="h-4 w-4" />
             </Button>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-book-${book.id}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>هل أنت متأكد من حذف الكتاب؟</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      سيتم حذف الكتاب "{book.title}" نهائياً. هذا الإجراء لا يمكن التراجع عنه.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="gap-2">
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDeleteBook(book)} className="bg-destructive text-destructive-foreground">
+                      حذف
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
         <p className="text-xs text-muted-foreground font-mono">ISBN: {book.isbn}</p>
@@ -222,10 +276,12 @@ export default function BooksPage() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
   const [isQuantityOpen, setIsQuantityOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const { data: books, isLoading } = useQuery<Book[]>({
     queryKey: ["/api/books"],
@@ -251,6 +307,21 @@ export default function BooksPage() {
       totalQuantity: 0,
       readyQuantity: 0,
       printingQuantity: 0,
+    },
+  });
+
+  // نموذج تعديل بيانات الكتاب الكاملة
+  const editForm = useForm<EditBookForm>({
+    resolver: zodResolver(editBookSchema),
+    defaultValues: {
+      title: "",
+      author: "",
+      isbn: "",
+      category: "أخرى",
+      totalQuantity: 0,
+      readyQuantity: 0,
+      printingQuantity: 0,
+      price: 0,
     },
   });
 
@@ -287,6 +358,60 @@ export default function BooksPage() {
     },
   });
 
+  // mutation لتحديث بيانات الكتاب الكاملة
+  const updateBookMutation = useMutation({
+    mutationFn: async ({ bookId, data }: { bookId: string; data: EditBookForm }) => {
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, currentUser: user })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'فشل تحديث الكتاب');
+      }
+      return response.json() as Promise<Book>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsEditOpen(false);
+      setSelectedBook(null);
+      toast({ title: "تم تحديث بيانات الكتاب بنجاح" });
+    },
+    onError: (error: any) => {
+      const message = error?.message || "حدث خطأ أثناء تحديث الكتاب";
+      toast({ title: message, variant: "destructive" });
+    },
+  });
+
+  // mutation لحذف الكتاب
+  const deleteBookMutation = useMutation({
+    mutationFn: async (bookId: string) => {
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': user?.role || ''
+        },
+        body: JSON.stringify({ currentUser: user })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'فشل الحذف');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({ title: "تم حذف الكتاب بنجاح" });
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message || "حدث خطأ أثناء حذف الكتاب", variant: "destructive" });
+    },
+  });
+
   const handleViewBarcode = (book: Book) => {
     setSelectedBook(book);
     setIsBarcodeOpen(true);
@@ -300,6 +425,27 @@ export default function BooksPage() {
       printingQuantity: book.printingQuantity || 0,
     });
     setIsQuantityOpen(true);
+  };
+
+  // فتح نافذة تعديل بيانات الكتاب الكاملة
+  const handleEditBook = (book: Book) => {
+    setSelectedBook(book);
+    editForm.reset({
+      title: book.title,
+      author: book.author,
+      isbn: book.isbn,
+      category: book.category,
+      totalQuantity: book.totalQuantity || 0,
+      readyQuantity: book.readyQuantity || 0,
+      printingQuantity: book.printingQuantity || 0,
+      price: Number(book.price) || 0,
+    });
+    setIsEditOpen(true);
+  };
+
+  // حذف الكتاب
+  const handleDeleteBook = (book: Book) => {
+    deleteBookMutation.mutate(book.id);
   };
 
   const filteredBooks = books?.filter((b) => {
@@ -567,7 +713,15 @@ export default function BooksPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredBooks?.map((book) => (
-                <BookCard key={book.id} book={book} onViewBarcode={handleViewBarcode} onEditQuantity={handleEditQuantity} />
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  onViewBarcode={handleViewBarcode} 
+                  onEditQuantity={handleEditQuantity}
+                  onEditBook={handleEditBook}
+                  onDeleteBook={handleDeleteBook}
+                  isAdmin={isAdmin}
+                />
               ))}
             </div>
           )}
@@ -654,6 +808,157 @@ export default function BooksPage() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     "تحديث الكميات"
+                  )}
+                </Button>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* نافذة تعديل بيانات الكتاب الكاملة */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات الكتاب</DialogTitle>
+          </DialogHeader>
+          {selectedBook && (
+            <Form {...editForm}>
+              <form
+                onSubmit={editForm.handleSubmit((data) =>
+                  updateBookMutation.mutate({ bookId: selectedBook.id, data })
+                )}
+                className="space-y-4"
+              >
+                <FormField
+                  control={editForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>اسم الكتاب</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-book-title" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="author"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>المؤلف</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-book-author" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="isbn"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>رقم ISBN</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-edit-book-isbn" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>الصنف</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-book-category">
+                              <SelectValue placeholder="اختر الصنف" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BOOK_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="totalQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>الكمية الإجمالية</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-edit-book-total" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="readyQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>الكمية الجاهزة</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-edit-book-ready" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="printingQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>قيد الطباعة</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} data-testid="input-edit-book-printing" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={editForm.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>السعر (د.ج)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} data-testid="input-edit-book-price" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={updateBookMutation.isPending}
+                  data-testid="button-submit-edit-book"
+                >
+                  {updateBookMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "حفظ التعديلات"
                   )}
                 </Button>
               </form>

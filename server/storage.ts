@@ -4,13 +4,19 @@ import {
   type Material, type InsertMaterial,
   type InventoryMovement, type InsertInventoryMovement,
   type PrintOrder, type InsertPrintOrder,
-  type Book, type InsertBook,
+  type Book, type InsertBook, type UpdateBook,
   type Expense, type InsertExpense,
   type ActivityLog, type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, and, gte, lte, desc, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { createHash } from "crypto";
+
+// دالة لتشفير كلمة المرور باستخدام SHA-256
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex');
+}
 
 export interface IStorage {
   // إدارة المستخدمين
@@ -20,6 +26,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: UpdateUser): Promise<User>;
   toggleUserActive(id: string, isActive: boolean): Promise<void>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<void>;
 
   // إدارة المخزون
   getMaterials(): Promise<Material[]>;
@@ -37,13 +44,17 @@ export interface IStorage {
   getOrder(id: string): Promise<PrintOrder | undefined>;
   createOrder(order: InsertPrintOrder): Promise<PrintOrder>;
   updateOrderStatus(id: string, status: string): Promise<void>;
+  softDeleteOrder(id: string): Promise<void>;
 
   getBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
   getBookByBarcode(barcode: string): Promise<Book | undefined>;
+  getBookByIsbn(isbn: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
+  updateBook(id: string, updates: UpdateBook): Promise<Book>;
   updateBookCover(id: string, coverPath: string): Promise<void>;
   updateBookQuantities(id: string, totalQuantity: number, readyQuantity: number, printingQuantity: number): Promise<Book>;
+  softDeleteBook(id: string): Promise<void>;
 
   getExpenses(): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
@@ -117,6 +128,11 @@ export class DatabaseStorage implements IStorage {
     await db.update(users).set({ isActive }).where(eq(users.id, id));
   }
 
+  // تحديث كلمة مرور المستخدم (مشفرة)
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, id));
+  }
+
   // ===== إدارة المخزون =====
   async getMaterials(): Promise<Material[]> {
     return db.select().from(materials)
@@ -172,7 +188,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrders(): Promise<PrintOrder[]> {
-    return db.select().from(printOrders).orderBy(desc(printOrders.createdAt));
+    return db.select().from(printOrders)
+      .where(eq(printOrders.isDeleted, false))
+      .orderBy(desc(printOrders.createdAt));
   }
 
   async getOrder(id: string): Promise<PrintOrder | undefined> {
@@ -189,8 +207,15 @@ export class DatabaseStorage implements IStorage {
     await db.update(printOrders).set({ status }).where(eq(printOrders.id, id));
   }
 
+  // حذف منطقي للطلب
+  async softDeleteOrder(id: string): Promise<void> {
+    await db.update(printOrders).set({ isDeleted: true }).where(eq(printOrders.id, id));
+  }
+
   async getBooks(): Promise<Book[]> {
-    return db.select().from(books).orderBy(desc(books.createdAt));
+    return db.select().from(books)
+      .where(eq(books.isDeleted, false))
+      .orderBy(desc(books.createdAt));
   }
 
   async getBook(id: string): Promise<Book | undefined> {
@@ -199,7 +224,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookByBarcode(barcode: string): Promise<Book | undefined> {
-    const [book] = await db.select().from(books).where(eq(books.barcode, barcode));
+    const [book] = await db.select().from(books)
+      .where(and(eq(books.barcode, barcode), eq(books.isDeleted, false)));
+    return book || undefined;
+  }
+
+  // جلب كتاب برقم ISBN
+  async getBookByIsbn(isbn: string): Promise<Book | undefined> {
+    const [book] = await db.select().from(books)
+      .where(and(eq(books.isbn, isbn), eq(books.isDeleted, false)));
     return book || undefined;
   }
 
@@ -238,6 +271,32 @@ export class DatabaseStorage implements IStorage {
       .where(eq(books.id, id))
       .returning();
     return book;
+  }
+
+  // تحديث جميع بيانات الكتاب
+  async updateBook(id: string, updates: UpdateBook): Promise<Book> {
+    const updateData: Record<string, any> = { ...updates };
+    
+    // حساب الحالة تلقائياً إذا تم تغيير الكميات
+    if (updates.readyQuantity !== undefined || updates.printingQuantity !== undefined) {
+      const book = await this.getBook(id);
+      if (book) {
+        const readyQty = updates.readyQuantity ?? book.readyQuantity ?? 0;
+        const printingQty = updates.printingQuantity ?? book.printingQuantity ?? 0;
+        updateData.status = calculateBookStatus(readyQty, printingQty);
+      }
+    }
+    
+    const [book] = await db.update(books)
+      .set(updateData)
+      .where(eq(books.id, id))
+      .returning();
+    return book;
+  }
+
+  // حذف منطقي للكتاب
+  async softDeleteBook(id: string): Promise<void> {
+    await db.update(books).set({ isDeleted: true }).where(eq(books.id, id));
   }
 
   async getExpenses(): Promise<Expense[]> {

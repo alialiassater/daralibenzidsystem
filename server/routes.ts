@@ -1,7 +1,13 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, type InsertActivityLog } from "@shared/schema";
+import { insertMaterialSchema, insertInventoryMovementSchema, insertPrintOrderSchema, insertBookSchema, updateBookSchema, insertExpenseSchema, insertUserSchema, updateUserSchema, type InsertActivityLog } from "@shared/schema";
+import { createHash } from "crypto";
+
+// دالة لتشفير كلمة المرور
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex');
+}
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -278,6 +284,53 @@ export async function registerRoutes(
     }
   });
 
+  // تغيير كلمة مرور الموظف (للمدير فقط)
+  app.patch("/api/users/:id/password", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const { newPassword, currentUser } = req.body;
+      const userRole = req.headers['x-user-role'];
+      
+      // التحقق من صلاحية المدير
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "هذه العملية متاحة للمدير فقط" });
+      }
+      
+      // التحقق من كلمة المرور الجديدة
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+      }
+      
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      
+      // تشفير كلمة المرور الجديدة
+      const hashedPassword = hashPassword(newPassword);
+      await storage.updateUserPassword(userId, hashedPassword);
+      
+      // تسجيل النشاط (بدون تخزين كلمة السر)
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'user',
+          entityId: userId,
+          entityName: targetUser.fullName,
+          details: `تغيير كلمة مرور الموظف: ${targetUser.fullName}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
+      res.json({ success: true, message: "تم تغيير كلمة المرور بنجاح" });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في تغيير كلمة المرور" });
+    }
+  });
+
   // Materials routes
   app.get("/api/materials", async (req, res) => {
     try {
@@ -505,6 +558,46 @@ export async function registerRoutes(
     }
   });
 
+  // حذف طلب (Soft Delete - للمدير فقط)
+  app.delete("/api/orders/:id", async (req, res) => {
+    try {
+      const orderId = req.params.id;
+      const { currentUser } = req.body;
+      const userRole = req.headers['x-user-role'];
+      
+      // التحقق من صلاحية المدير
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
+      }
+      
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "الطلب غير موجود" });
+      }
+      
+      await storage.softDeleteOrder(orderId);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'delete',
+          entityType: 'order',
+          entityId: orderId,
+          entityName: order.customerName,
+          details: `حذف طلب: ${order.customerName} - ${order.printType}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
+      res.json({ success: true, message: "تم حذف الطلب بنجاح" });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في حذف الطلب" });
+    }
+  });
+
   // Books routes
   app.get("/api/books", async (req, res) => {
     try {
@@ -628,6 +721,112 @@ export async function registerRoutes(
       res.json({ success: true, coverImage: coverPath });
     } catch (error) {
       res.status(500).json({ message: "خطأ في رفع صورة الغلاف" });
+    }
+  });
+
+  // تحديث بيانات الكتاب (الاسم، المؤلف، الصنف، ISBN، الكميات)
+  app.patch("/api/books/:id", async (req, res) => {
+    try {
+      const bookId = req.params.id;
+      const { currentUser, ...updateData } = req.body;
+      
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ message: "الكتاب غير موجود" });
+      }
+      
+      // التحقق من تفرد ISBN إذا تم تغييره
+      if (updateData.isbn && updateData.isbn !== book.isbn) {
+        const existingBook = await storage.getBookByIsbn(updateData.isbn);
+        if (existingBook && existingBook.id !== bookId) {
+          return res.status(400).json({ message: "رقم ISBN مستخدم مسبقاً لكتاب آخر" });
+        }
+      }
+      
+      // التحقق من صحة الكميات إذا تم تحديثها
+      const totalQty = updateData.totalQuantity ?? book.totalQuantity ?? 0;
+      const readyQty = updateData.readyQuantity ?? book.readyQuantity ?? 0;
+      const printingQty = updateData.printingQuantity ?? book.printingQuantity ?? 0;
+      
+      if (readyQty > totalQty) {
+        return res.status(400).json({ message: "الكمية الجاهزة لا يمكن أن تكون أكبر من الكمية الإجمالية" });
+      }
+      if (readyQty + printingQty > totalQty) {
+        return res.status(400).json({ message: "مجموع الكميات لا يمكن أن يتجاوز الكمية الإجمالية" });
+      }
+      
+      const validatedData = updateBookSchema.parse(updateData);
+      const updatedBook = await storage.updateBook(bookId, validatedData);
+      
+      // تسجيل النشاط مع تفاصيل التغييرات
+      if (currentUser) {
+        const changes: string[] = [];
+        if (updateData.title && updateData.title !== book.title) changes.push(`الاسم: ${updateData.title}`);
+        if (updateData.author && updateData.author !== book.author) changes.push(`المؤلف: ${updateData.author}`);
+        if (updateData.isbn && updateData.isbn !== book.isbn) changes.push(`ISBN: ${updateData.isbn}`);
+        if (updateData.category && updateData.category !== book.category) changes.push(`الصنف: ${updateData.category}`);
+        
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'update',
+          entityType: 'book',
+          entityId: bookId,
+          entityName: updatedBook.title,
+          details: changes.length > 0 
+            ? `تعديل كتاب "${book.title}": ${changes.join('، ')}`
+            : `تعديل بيانات كتاب "${book.title}"`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
+      res.json(updatedBook);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: error.errors });
+      }
+      res.status(500).json({ message: "خطأ في تحديث بيانات الكتاب" });
+    }
+  });
+
+  // حذف كتاب (Soft Delete - للمدير فقط)
+  app.delete("/api/books/:id", async (req, res) => {
+    try {
+      const bookId = req.params.id;
+      const { currentUser } = req.body;
+      const userRole = req.headers['x-user-role'];
+      
+      // التحقق من صلاحية المدير
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
+      }
+      
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ message: "الكتاب غير موجود" });
+      }
+      
+      await storage.softDeleteBook(bookId);
+      
+      // تسجيل النشاط
+      if (currentUser) {
+        await logActivity({
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'delete',
+          entityType: 'book',
+          entityId: bookId,
+          entityName: book.title,
+          details: `حذف كتاب: ${book.title} - ${book.author}`,
+          ipAddress: getClientIp(req),
+        });
+      }
+      
+      res.json({ success: true, message: "تم حذف الكتاب بنجاح" });
+    } catch (error) {
+      res.status(500).json({ message: "خطأ في حذف الكتاب" });
     }
   });
 

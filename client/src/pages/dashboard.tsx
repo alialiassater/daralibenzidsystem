@@ -27,6 +27,7 @@ interface DashboardStats {
   readyBooksList: Array<{ id: string; title: string; readyQuantity: number }>;
   lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
   recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
+  ordersList: Array<{ id: string; customerName: string; status: string; quantity: number; printType: string; createdAt: string | null }>;
 }
 
 const COLORS = ["hsl(217, 91%, 60%)", "hsl(142, 76%, 36%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(0, 84%, 60%)"];
@@ -75,6 +76,7 @@ function LoadingSkeleton() {
 export default function DashboardPage() {
   const [, navigate] = useLocation();
   const [isReadyBooksExpanded, setIsReadyBooksExpanded] = useState(false);
+  const [isOrdersExpanded, setIsOrdersExpanded] = useState(false);
   
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -133,12 +135,76 @@ export default function DashboardPage() {
           icon={Package}
           description={`${stats?.lowStockCount || 0} عناصر منخفضة`}
         />
-        <StatCard
-          title="طلبات الطباعة"
-          value={stats?.totalOrders || 0}
-          icon={Printer}
-          description={`${stats?.pendingOrders || 0} طلبات قيد الانتظار`}
-        />
+        {/* كرت طلبات الطباعة القابل للتوسيع */}
+        <Card className="col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">طلبات الطباعة</CardTitle>
+            <div className="flex items-center gap-1">
+              <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
+              {/* زر التوسيع/الطي مع أيقونة السهم */}
+              <button
+                type="button"
+                className="p-1 rounded-md hover:bg-muted transition-colors"
+                onClick={() => setIsOrdersExpanded(prev => !prev)}
+                data-testid="button-expand-orders"
+                aria-expanded={isOrdersExpanded}
+              >
+                <ChevronDown 
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    isOrdersExpanded ? "rotate-0" : "rotate-90"
+                  }`} 
+                />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{stats?.totalOrders || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">{stats?.pendingOrders || 0} طلبات قيد الانتظار</p>
+            
+            {/* قائمة الطلبات مع أنيميشن */}
+            {isOrdersExpanded && (
+              <div 
+                className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200"
+                data-testid="orders-list-container"
+              >
+                {stats?.ordersList && stats.ordersList.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {stats.ordersList.map((order) => (
+                      <div
+                        key={order.id}
+                        onClick={() => navigate(`/orders?orderId=${order.id}`)}
+                        className="flex items-center justify-between p-2 rounded-md bg-primary/10 hover:bg-primary/20 cursor-pointer transition-colors duration-150"
+                        data-testid={`order-item-${order.id}`}
+                      >
+                        <div className="flex-1 ml-2 min-w-0">
+                          <span className="text-sm font-medium truncate block">{order.customerName}</span>
+                          <span className="text-xs text-muted-foreground truncate block">{order.printType}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="secondary" className="text-xs">
+                            {order.quantity} نسخة
+                          </Badge>
+                          <Badge 
+                            variant={order.status === 'completed' ? 'default' : order.status === 'in_progress' ? 'secondary' : 'outline'}
+                            className={`text-xs ${
+                              order.status === 'completed' ? 'bg-green-500/20 text-green-600' :
+                              order.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-600' :
+                              'bg-blue-500/20 text-blue-600'
+                            }`}
+                          >
+                            {statusLabels[order.status] || order.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">لا توجد طلبات</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
         <StatCard
           title="الكتب المنشورة"
           value={stats?.totalBooks || 0}

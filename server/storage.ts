@@ -76,6 +76,7 @@ export interface IStorage {
     readyBooksList: Array<{ id: string; title: string; readyQuantity: number }>;
     lowStockItems: Array<{ id: string; name: string; quantity: number; minQuantity: number }>;
     recentOrders: Array<{ id: string; customerName: string; status: string; cost: string }>;
+    ordersList: Array<{ id: string; customerName: string; status: string; quantity: number; printType: string; createdAt: Date | null }>;
   }>;
 }
 
@@ -400,6 +401,25 @@ export class DatabaseStorage implements IStorage {
         status: o.status,
         cost: o.cost,
       })),
+      // قائمة الطلبات مرتبة حسب التاريخ (الأحدث أولاً) ثم الحالة
+      ordersList: allOrders
+        .sort((a, b) => {
+          // ترتيب حسب الحالة أولاً (قيد المعالجة، قيد الطباعة، مكتمل)
+          const statusOrder: Record<string, number> = { pending: 0, in_progress: 1, completed: 2, cancelled: 3 };
+          const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+          if (statusDiff !== 0) return statusDiff;
+          // ثم حسب التاريخ (الأحدث أولاً)
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        })
+        .slice(0, 10)
+        .map(o => ({
+          id: o.id,
+          customerName: o.customerName,
+          status: o.status,
+          quantity: o.quantity,
+          printType: o.printType,
+          createdAt: o.createdAt,
+        })),
       booksByStatus: [
         { name: 'جاهز', value: readyBooksCount },
         { name: 'قيد الطباعة', value: allBooks.length - readyBooksCount }

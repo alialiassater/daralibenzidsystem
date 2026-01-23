@@ -8,7 +8,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import logoImage from "@assets/image_1769118952560.png";
+import logoImage from "/logo.png";
 import {
   Sidebar,
   SidebarContent,

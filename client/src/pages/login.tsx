@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Printer, Loader2 } from "lucide-react";
+import logoImage from "/logo.png";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { User } from "@shared/schema";
 
@@ -65,8 +65,8 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-            <Printer className="h-8 w-8" />
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-white p-2 shadow-lg overflow-hidden border">
+            <img src={logoImage} alt="دار علي بن زيد" className="h-full w-full object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">نظام إدارة المطبعة</CardTitle>

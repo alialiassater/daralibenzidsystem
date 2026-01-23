@@ -343,7 +343,14 @@ export async function registerRoutes(
 
   app.post("/api/materials", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const { currentUser, ...materialData } = req.body;
+      
+      // التحقق من صلاحية الإضافة (مسموح للمدير فقط)
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الإضافة متاحة للمدير فقط" });
+      }
+
       const validatedData = insertMaterialSchema.parse(materialData);
       const material = await storage.createMaterial(validatedData);
       
@@ -386,7 +393,8 @@ export async function registerRoutes(
   // حذف مادة (Soft Delete)
   app.delete("/api/materials/:id", async (req, res) => {
     try {
-      const { userRole, currentUser } = req.body;
+      const userRole = req.headers['x-user-role'];
+      const currentUser = req.body.currentUser;
       const materialId = req.params.id;
       
       const material = await storage.getMaterial(materialId);
@@ -400,6 +408,10 @@ export async function registerRoutes(
         return res.status(403).json({ 
           message: "لا يمكن حذف مادة لها حركات مسجلة. يتطلب صلاحية المدير" 
         });
+      }
+
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
       }
       
       await storage.softDeleteMaterial(materialId);
@@ -496,6 +508,7 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const { currentUser, ...orderData } = req.body;
       const validatedData = insertPrintOrderSchema.parse(orderData);
       const order = await storage.createOrder(validatedData);
@@ -527,9 +540,19 @@ export async function registerRoutes(
   // تحديث حالة الطلب
   app.patch("/api/orders/:id/status", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const { status, currentUser } = req.body;
       const order = await storage.getOrder(req.params.id);
       
+      if (!order) {
+        return res.status(404).json({ message: "الطلب غير موجود" });
+      }
+
+      // إذا كان الطلب مكتملاً، لا يمكن تغيير حالته إلا بواسطة المدير
+      if (order.status === 'completed' && userRole !== 'admin') {
+        return res.status(403).json({ message: "لا يمكن تعديل حالة الطلبات المكتملة إلا بواسطة المدير" });
+      }
+
       await storage.updateOrderStatus(req.params.id, status);
       
       // تسجيل النشاط
@@ -562,6 +585,7 @@ export async function registerRoutes(
   // تحديث بيانات الطلب
   app.patch("/api/orders/:id", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const id = req.params.id;
       const { currentUser, ...updates } = req.body;
       
@@ -569,7 +593,7 @@ export async function registerRoutes(
       if (!order) return res.status(404).json({ message: "الطلب غير موجود" });
 
       // التحقق من الصلاحيات
-      if (currentUser?.role !== 'admin' && order.status === 'completed') {
+      if (userRole !== 'admin' && order.status === 'completed') {
         return res.status(403).json({ message: "لا يمكن تعديل الطلبات المكتملة إلا بواسطة المدير" });
       }
 
@@ -596,6 +620,7 @@ export async function registerRoutes(
   // حذف طلب (Soft Delete - للمدير فقط أو الطلبات غير المكتملة)
   app.delete("/api/orders/:id", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const orderId = req.params.id;
       const { currentUser } = req.body;
       
@@ -605,7 +630,7 @@ export async function registerRoutes(
       }
 
       // التحقق من صلاحية المدير للحذف
-      if (currentUser?.role !== 'admin') {
+      if (userRole !== 'admin') {
         return res.status(403).json({ message: "صلاحية الحذف متاحة للمدير فقط" });
       }
 
@@ -644,8 +669,15 @@ export async function registerRoutes(
 
   app.post("/api/books", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const { currentUser, ...bookData } = req.body;
       const validatedData = insertBookSchema.parse(bookData);
+      
+      // التحقق من صلاحية الإضافة (مسموح للمدير فقط)
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية الإضافة متاحة للمدير فقط" });
+      }
+
       const book = await storage.createBook(validatedData);
       
       // تسجيل النشاط
@@ -761,9 +793,15 @@ export async function registerRoutes(
   // تحديث بيانات الكتاب (الاسم، المؤلف، الصنف، ISBN، الكميات)
   app.patch("/api/books/:id", async (req, res) => {
     try {
+      const userRole = req.headers['x-user-role'];
       const bookId = req.params.id;
       const { currentUser, ...updateData } = req.body;
       
+      // التحقق من صلاحية التعديل (مسموح للمدير فقط)
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "صلاحية التعديل متاحة للمدير فقط" });
+      }
+
       const book = await storage.getBook(bookId);
       if (!book) {
         return res.status(404).json({ message: "الكتاب غير موجود" });

@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -65,9 +65,7 @@ function AuthenticatedLayout() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1">
-          <header className="flex items-center justify-between gap-4 p-3 border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="hidden sm:flex" />
-            <div className="sm:hidden" />
+          <header className="flex items-center justify-end gap-4 p-3 border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">

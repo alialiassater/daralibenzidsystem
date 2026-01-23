@@ -78,7 +78,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar side="right" collapsible="icon">
+    <Sidebar side="right" collapsible="none">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <img src={logoImage} alt="دار علي بن زيد" className="h-12 w-12 object-contain" />

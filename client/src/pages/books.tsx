@@ -730,16 +730,18 @@ export default function BooksPage() {
       </div>
 
       <Dialog open={isBarcodeOpen} onOpenChange={setIsBarcodeOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>باركود ISBN</DialogTitle>
+            <DialogTitle className="text-center">باركود ISBN</DialogTitle>
           </DialogHeader>
           {selectedBook && (
-            <div className="space-y-4">
-              <div className="flex flex-col items-center p-4 bg-white rounded-md border">
-                <p className="text-center font-bold text-black mb-2">{selectedBook.title}</p>
-                <BarcodeGenerator value={selectedBook.isbn} showDownload={false} showPrint={false} />
-                <p className="text-center text-xs text-black mt-1 font-mono">{selectedBook.isbn}</p>
+            <div className="flex flex-col items-center justify-center w-full space-y-4 py-4">
+              <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg border w-full max-w-sm mx-auto shadow-sm">
+                <p className="text-center font-bold text-lg text-black mb-4 w-full">{selectedBook.title}</p>
+                <div className="flex justify-center items-center w-full overflow-hidden bg-white">
+                  <BarcodeGenerator value={selectedBook.isbn} />
+                </div>
+                <p className="text-center text-sm text-black mt-4 font-mono font-bold w-full" dir="ltr">{selectedBook.isbn}</p>
               </div>
             </div>
           )}

@@ -42,8 +42,8 @@ export function BarcodeGenerator({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-md border overflow-visible">
-      <svg ref={svgRef} />
+    <div className="flex flex-col items-center justify-center w-full overflow-visible">
+      <svg ref={svgRef} className="max-w-full h-auto" />
     </div>
   );
 }

@@ -407,7 +407,20 @@ export async function registerRoutes(
         return res.status(404).json({ message: "المادة غير موجودة" });
       }
       
-      const validatedData = updateMaterialSchema.parse(updateData);
+      // تنظيف البيانات - تحويل السلاسل الفارغة إلى null للحقول الاختيارية
+      const cleanedData = {
+        ...updateData,
+        paperSize: updateData.paperSize || null,
+        paperVariant: updateData.paperVariant || null,
+      };
+      
+      // إزالة حقول الورق إذا لم تكن المادة من نوع ورق
+      if (existingMaterial.type !== 'paper') {
+        cleanedData.paperSize = null;
+        cleanedData.paperVariant = null;
+      }
+      
+      const validatedData = updateMaterialSchema.parse(cleanedData);
       const material = await storage.updateMaterial(materialId, validatedData);
       
       // تسجيل النشاط

@@ -33,6 +33,7 @@ const materialSchema = z.object({
 
 // مخطط تحديث المادة
 const updateMaterialSchema = z.object({
+  name: z.string().min(1, "اسم المادة مطلوب"),
   price: z.coerce.number().min(0, "السعر مطلوب"),
   paperSize: z.string().optional(),
   paperVariant: z.string().optional(),
@@ -127,6 +128,7 @@ export default function InventoryPage() {
   const editForm = useForm<UpdateMaterialForm>({
     resolver: zodResolver(updateMaterialSchema),
     defaultValues: {
+      name: "",
       price: 0,
       paperSize: "",
       paperVariant: "",
@@ -228,6 +230,7 @@ export default function InventoryPage() {
   const openEditDialog = (material: Material) => {
     setSelectedMaterial(material);
     editForm.reset({
+      name: material.name || "",
       price: Number(material.price) || 0,
       paperSize: material.paperSize || "",
       paperVariant: material.paperVariant || "",
@@ -700,6 +703,19 @@ export default function InventoryPage() {
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit((data) => updateMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>اسم المادة</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={editForm.control}
                 name="price"

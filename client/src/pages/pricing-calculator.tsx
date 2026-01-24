@@ -354,7 +354,7 @@ export default function PricingCalculatorPage() {
                   <Banknote className="h-20 w-20" />
                 </div>
                 <div className="relative z-10 text-center">
-                  <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر النهائي بعد الخصم</span>
+                  <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر النهائي</span>
                   <div className="flex flex-col items-center mt-2">
                     <span className="text-4xl font-black">{Math.round(results.finalTotal).toLocaleString()}</span>
                     <span className="text-sm font-medium mt-1 opacity-90">دينار جزائري</span>

@@ -87,7 +87,7 @@ export async function registerRoutes(
         if (username === "admin" && password === "admin123") {
           user = await storage.createUser({
             username: "admin",
-            password: "admin",
+            password: "admin123",
             fullName: "مدير النظام",
             role: "admin",
           });
@@ -101,10 +101,11 @@ export async function registerRoutes(
         return res.status(401).json({ message: "تم تعطيل هذا الحساب" });
       }
       
-      if (user.password !== password) {
+          // تشفير كلمة المرور للمقارنة
+      const hashedPassword = hashPassword(password);
+      if (user.password !== hashedPassword) {
         return res.status(401).json({ message: "بيانات الدخول غير صحيحة" });
       }
-      
       // تسجيل نشاط الدخول
       await logActivity({
         userId: user.id,

@@ -205,8 +205,9 @@ export const insertMaterialSchema = createInsertSchema(materials).omit({
   paperVariant: z.string().optional().nullable(),
 });
 
-// مخطط تحديث المادة - لتعديل السعر والحجم والنوع
+// مخطط تحديث المادة - لتعديل الاسم والسعر والحجم والنوع
 export const updateMaterialSchema = z.object({
+  name: z.string().min(1).optional(),
   price: priceTransform.optional(),
   paperSize: z.string().optional().nullable(),
   paperVariant: z.string().optional().nullable(),

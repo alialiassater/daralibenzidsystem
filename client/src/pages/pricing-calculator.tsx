@@ -26,7 +26,7 @@ import {
 
 const PAPER_SIZES = [
   { label: "16/24", value: "16/24", prices: { normal: 5.85, colored: 5.85 }, coverPrice: 150 },
-  { label: "15/22", value: "15/22", prices: { normal: 3.25, colored: 9.33 }, coverPrice: 210 },
+  { label: "15/22", value: "15/22", prices: { normal: 3.25, colored: 9.33 }, coverPrice: 80 },
   { label: "A3", value: "A3", prices: { normal: 12, colored: 12 }, coverPrice: 210 },
 ];
 

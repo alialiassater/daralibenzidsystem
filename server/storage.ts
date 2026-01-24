@@ -41,7 +41,7 @@ export interface IStorage {
   getMaterial(id: string): Promise<Material | undefined>;
   getMaterialByBarcode(barcode: string): Promise<Material | undefined>;
   createMaterial(material: InsertMaterial): Promise<Material>;
-  updateMaterial(id: string, updates: { price?: string; paperSize?: string | null; paperVariant?: string | null }): Promise<Material>;
+  updateMaterial(id: string, updates: { name?: string; price?: string; paperSize?: string | null; paperVariant?: string | null }): Promise<Material>;
   updateMaterialQuantity(id: string, quantity: number): Promise<void>;
   softDeleteMaterial(id: string): Promise<void>;
   hasMaterialMovements(id: string): Promise<boolean>;
@@ -138,9 +138,10 @@ export class DatabaseStorage implements IStorage {
     return material;
   }
 
-  // تحديث المادة (السعر، الحجم، النوع)
-  async updateMaterial(id: string, updates: { price?: string; paperSize?: string | null; paperVariant?: string | null }): Promise<Material> {
+  // تحديث المادة (الاسم، السعر، الحجم، النوع)
+  async updateMaterial(id: string, updates: { name?: string; price?: string; paperSize?: string | null; paperVariant?: string | null }): Promise<Material> {
     const updateData: any = {};
+    if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.price !== undefined) updateData.price = updates.price;
     if (updates.paperSize !== undefined) updateData.paperSize = updates.paperSize;
     if (updates.paperVariant !== undefined) updateData.paperVariant = updates.paperVariant;

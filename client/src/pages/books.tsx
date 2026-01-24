@@ -32,6 +32,7 @@ const BOOK_CATEGORIES = [
   { value: "رواية", label: "رواية" },
   { value: "قصص قصيرة", label: "قصص قصيرة" },
   { value: "مسرحيات", label: "مسرحيات" },
+  { value: "قصص", label: "قصص" },
   { value: "أخرى", label: "أخرى" },
 ];
 

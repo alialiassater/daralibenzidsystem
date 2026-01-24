@@ -74,7 +74,6 @@ function AuthenticatedLayout() {
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1">
           <header className="flex items-center justify-end gap-4 p-3 border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-            <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
             <Router />

@@ -25,9 +25,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PAPER_SIZES = [
-  { label: "16/24", value: "16/24", prices: { normal: 5.85, colored: 9.66 }, coverPrice: 150 },
-  { label: "15/22", value: "15/22", prices: { normal: 2.6, colored: 7.22 }, coverPrice: 80 },
-  { label: "A4", value: "A4", prices: { normal: 12, colored: 15 }, coverPrice: 210 },
+  { label: "16/24", value: "16/24", prices: { normal: 5.5, colored: 8 }, coverPrice: 150 },
+  { label: "15/22", value: "15/22", prices: { normal: 2.6, colored: 6.8 }, coverPrice: 80 },
+  { label: "A4", value: "A4", prices: { normal: 8, colored: 10 }, coverPrice: 210 },
 ];
 
 export default function PricingCalculatorPage() {

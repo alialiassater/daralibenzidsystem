@@ -379,6 +379,35 @@ export default function PricingCalculatorPage() {
                   <p className="text-[10px] text-muted-foreground italic">يتم تطبيق الخصم على السعر الإجمالي النهائي.</p>
                 </div>
               )}
+
+              {isAdmin && (
+                <div className="space-y-4 pt-4 border-t">
+                  <Label className="text-sm font-bold flex items-center gap-2 text-green-600">
+                    <Banknote className="h-4 w-4" />
+                    إضافة زيادة (للمدير فقط)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Select value={increaseType} onValueChange={(v: any) => setIncreaseType(v)}>
+                      <SelectTrigger className="w-[120px] h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">مبلغ (دج)</SelectItem>
+                        <SelectItem value="percent">نسبة (%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={increaseValue || ''}
+                      onChange={(e) => setIncreaseValue(Math.max(0, Number(e.target.value)))}
+                      placeholder="0"
+                      className="h-10 flex-1"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">يتم إضافة الزيادة إلى السعر الإجمالي.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

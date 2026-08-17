@@ -43,12 +43,15 @@ export default function PricingCalculatorPage() {
   const [paperType, setPaperType] = useState<"normal" | "colored">("normal");
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState<number>(0);
+  const [increaseType, setIncreaseType] = useState<"amount" | "percent">("amount");
+  const [increaseValue, setIncreaseValue] = useState<number>(0);
 
   const [results, setResults] = useState({
     paperCost: 0,
     coverCost: 0,
     originalTotal: 0,
     discountAmount: 0,
+    increaseAmount: 0,
     finalTotal: 0,
   });
 
@@ -112,6 +115,7 @@ export default function PricingCalculatorPage() {
     const originalTotal = paperTotalCost + coverTotalCost;
 
     let discountAmount = 0;
+    let increaseAmount = 0;
     if (isAdmin) {
       if (discountType === "percent") {
         discountAmount = (originalTotal * Number(discountValue)) / 100;
@@ -120,18 +124,26 @@ export default function PricingCalculatorPage() {
       }
       if (discountAmount > originalTotal) discountAmount = originalTotal;
       if (discountAmount < 0) discountAmount = 0;
+
+      if (increaseType === "percent") {
+        increaseAmount = (originalTotal * Number(increaseValue)) / 100;
+      } else {
+        increaseAmount = Number(increaseValue);
+      }
+      if (increaseAmount < 0) increaseAmount = 0;
     }
 
-    const finalTotal = originalTotal - discountAmount;
+    const finalTotal = originalTotal - discountAmount + increaseAmount;
 
     setResults({
       paperCost: paperTotalCost,
       coverCost: coverTotalCost,
       originalTotal,
       discountAmount,
+      increaseAmount,
       finalTotal,
     });
-  }, [pageCount, copies, paperSize, paperType, discountType, discountValue, isAdmin]);
+  }, [pageCount, copies, paperSize, paperType, discountType, discountValue, increaseType, increaseValue, isAdmin]);
 
   const filteredCalcs = savedCalcs?.filter(calc => 
     calc.bookTitle.toLowerCase().includes(searchTerm.toLowerCase())
@@ -175,6 +187,9 @@ export default function PricingCalculatorPage() {
         discountAmount: results.discountAmount,
         discountType,
         discountValue,
+        increaseType,
+        increaseValue,
+        increaseAmount: results.increaseAmount,
         finalTotal: results.finalTotal,
       })
     });
@@ -407,12 +422,19 @@ export default function PricingCalculatorPage() {
                   </div>
                 )}
 
+                {results.increaseAmount > 0 && (
+                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-100 dark:border-green-900/30 text-green-600">
+                    <span className="text-sm font-medium">قيمة الزيادة:</span>
+                    <span className="font-bold">+{Math.round(results.increaseAmount).toLocaleString()} دج</span>
+                  </div>
+                )}
+
                 <div className="mt-8 p-6 bg-primary text-primary-foreground rounded-xl shadow-lg border-2 border-primary-foreground/20 overflow-hidden relative">
                   <div className="absolute top-0 right-0 p-4 opacity-10">
                     <Banknote className="h-20 w-20" />
                   </div>
                   <div className="relative z-10 text-center">
-                    <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر النهائي بعد الخصم</span>
+                    <span className="text-xs font-light uppercase tracking-wider opacity-80">السعر النهائي</span>
                     <div className="flex flex-col items-center mt-2">
                       <span className="text-4xl font-black">{Math.round(results.finalTotal).toLocaleString()}</span>
                       <span className="text-sm font-medium mt-1 opacity-90">دينار جزائري</span>
